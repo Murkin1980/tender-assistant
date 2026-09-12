@@ -1,5 +1,5 @@
-# Keep this version aligned with .nvmrc and the root Node engine range.
-FROM node:22.22-bookworm-slim AS build
+# Keep the container runtime aligned with .nvmrc.
+FROM node:22.22.3-bookworm-slim AS build
 
 WORKDIR /workspace
 
@@ -18,7 +18,7 @@ RUN pnpm --filter @tender-assistant/frontend build \
   && cp -R frontend/.next /prod/frontend/.next \
   && cp -R frontend/public /prod/frontend/public
 
-FROM node:22.22-bookworm-slim AS runtime
+FROM node:22.22.3-bookworm-slim AS runtime
 
 WORKDIR /app
 

@@ -28,7 +28,7 @@ tender-assistant/
 
 ### Требования
 
-- Node.js `22.22.3`. Версия зафиксирована в `.nvmrc`; Docker использует существующий зафиксированный major/minor image `node:22.22-bookworm-slim`. Оба варианта удовлетворяют требованиям Vitest 5/Vite 8 (`>=22.12.0 <23`):
+- Node.js `22.22.3`. Версия зафиксирована в `.nvmrc` и используется в точном Docker image `node:22.22.3-bookworm-slim`. Оба варианта удовлетворяют требованиям Vitest 5/Vite 8 (`>=22.12.0 <23`).
 
   ```bash
   nvm install
@@ -43,7 +43,7 @@ tender-assistant/
   corepack prepare pnpm@12.4.1 --activate
   ```
 
-- Docker Engine с Docker Compose v2 — только для контейнерного сценария
+- Docker Engine с Docker Compose v2 — только для контейнерного сценария. Docker Engine в текущей песочнице недоступен, поэтому image build и Compose нужно проверить в CI или на машине с Docker.
 
 ### Запуск приложений напрямую
 
