@@ -43,6 +43,7 @@ describe('GET /api/v1/health proxy route', () => {
     const response = await GET();
 
     expect(response.status).toBe(200);
+    expect(response.headers.get('cache-control')).toBe('no-store');
     await expect(response.json()).resolves.toEqual(upstreamPayload);
     expect(fetchMock).toHaveBeenCalledWith(
       'http://configured-backend:4000/api/v1/health',
@@ -63,6 +64,7 @@ describe('GET /api/v1/health proxy route', () => {
     const responseBody = await response.json();
 
     expect(response.status).toBe(503);
+    expect(response.headers.get('cache-control')).toBe('no-store');
     expect(responseBody).toMatchObject({
       status: 'unavailable',
       service: 'tender-assistant-frontend-proxy',

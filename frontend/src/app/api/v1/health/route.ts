@@ -4,6 +4,7 @@ const UPSTREAM_TIMEOUT_MS = 3_000;
 const UPSTREAM_HEALTH_PATH = '/api/v1/health';
 const UPSTREAM_SERVICE = 'tender-assistant-backend';
 const PROXY_SERVICE = 'tender-assistant-frontend-proxy';
+const NO_STORE_HEADERS = { 'Cache-Control': 'no-store' };
 
 type UpstreamHealthResponse = {
   status: 'ok';
@@ -47,7 +48,7 @@ function unavailableResponse(status: 502 | 503): NextResponse<ProxyUnavailableRe
       service: PROXY_SERVICE,
       timestamp: new Date().toISOString(),
     },
-    { status },
+    { headers: NO_STORE_HEADERS, status },
   );
 }
 
@@ -90,7 +91,7 @@ export async function GET(): Promise<
       return unavailableResponse(502);
     }
 
-    return NextResponse.json(payload, { status: 200 });
+    return NextResponse.json(payload, { headers: NO_STORE_HEADERS, status: 200 });
   } catch {
     return unavailableResponse(503);
   } finally {

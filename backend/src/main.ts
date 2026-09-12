@@ -3,7 +3,7 @@ import configuration from './configuration';
 
 async function bootstrap(): Promise<void> {
   const { port } = configuration();
-  const app = await createApp({ logger: false });
+  const app = await createApp();
 
   await app.listen(port, '0.0.0.0');
 }

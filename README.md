@@ -28,7 +28,7 @@ tender-assistant/
 
 ### Требования
 
-- Node.js `22.22.3`. Версия зафиксирована в `.nvmrc` и совпадает с Docker base image:
+- Node.js `22.22.3`. Версия зафиксирована в `.nvmrc`; Docker использует существующий зафиксированный major/minor image `node:22.22-bookworm-slim`. Оба варианта удовлетворяют требованиям Vitest 5/Vite 8 (`>=22.12.0 <23`):
 
   ```bash
   nvm install

@@ -1,4 +1,5 @@
-FROM node:22.22.3-bookworm-slim AS build
+# Pin the Node 22.22 image line; local development uses Node 22.22.3 from .nvmrc.
+FROM node:22.22-bookworm-slim AS build
 
 WORKDIR /workspace
 
@@ -14,7 +15,7 @@ RUN pnpm --filter @tender-assistant/backend build \
   && rm -rf /prod/backend/dist \
   && cp -R backend/dist /prod/backend/dist
 
-FROM node:22.22.3-bookworm-slim AS runtime
+FROM node:22.22-bookworm-slim AS runtime
 
 WORKDIR /app
 
