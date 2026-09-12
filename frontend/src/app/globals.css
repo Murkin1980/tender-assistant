@@ -1,0 +1,95 @@
+:root {
+  color-scheme: light;
+  font-family: Arial, Helvetica, sans-serif;
+  background: #f4f7fb;
+  color: #14213d;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  min-height: 100vh;
+}
+
+.page-shell {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 24px;
+}
+
+.card {
+  width: min(100%, 560px);
+  padding: 48px;
+  border: 1px solid #dbe4f0;
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 20px 50px rgb(20 33 61 / 10%);
+}
+
+.eyebrow {
+  margin: 0 0 12px;
+  color: #496a9d;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(2rem, 8vw, 3.5rem);
+  line-height: 1;
+}
+
+.intro {
+  margin: 20px 0 32px;
+  color: #52627c;
+  font-size: 1.08rem;
+  line-height: 1.6;
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-weight: 700;
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #8290a8;
+}
+
+.status-available {
+  color: #176b49;
+}
+
+.status-available .status-dot {
+  background: #1e9c68;
+}
+
+.status-unavailable {
+  color: #8a4b28;
+}
+
+.status-unavailable .status-dot {
+  background: #d77942;
+}
+
+@media (max-width: 520px) {
+  .card {
+    padding: 32px 24px;
+  }
+}
