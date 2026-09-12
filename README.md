@@ -135,6 +135,38 @@ CORS_ORIGIN=https://app.example.com,https://admin.example.com
 
 Не используйте wildcard `*` для production.
 
+## Проверки в CI
+
+Воспроизводимые GitHub Actions quality gates определены в [`.github/workflows/ci.yml`](.github/workflows/ci.yml) (workflow `CI`).
+
+- **Триггеры:** `pull_request` в `main`, `push` в `main` и вручную через `workflow_dispatch`.
+- **Job `quality`** на GitHub-hosted Ubuntu runner: воспроизводимая установка зависимостей `pnpm install --frozen-lockfile` (Node.js читается из `.nvmrc`, pnpm — из `packageManager` в `package.json`, с кэшированием зависимостей через `actions/setup-node`), затем строго по порядку `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm test:e2e` и `pnpm build`. Ошибка любой команды падает весь workflow.
+- **Job `docker-smoke`** запускается после `quality` на GitHub-hosted Ubuntu runner: проверяет `docker compose config`, собирает и запускает контейнеры через `docker compose up --build -d`, bounded retry loop'ом (до 60 секунд на сервис) дожидается readiness и проверяет backend `http://localhost:3000/api/v1/health` и frontend Route Handler/proxy `http://localhost:3001/api/v1/health`, включая валидацию JSON-тела (`status`, `service`, ISO-8601 `timestamp`) без внешних зависимостей вроде `jq`.
+- При ошибке запуска или healthcheck workflow печатает `docker compose ps` и последние 200 строк логов обоих контейнеров.
+- Cleanup `docker compose down -v --remove-orphans` выполняется отдельным шагом всегда (`if: always()`), независимо от успеха или падения smoke-test.
+- В CI нет secrets, deployment-шагов и публикации Docker images; workflow работает без secrets и с read-only правами (`permissions: contents: read`), устаревшие запуски одной ветки/PR отменяются через `concurrency` + `cancel-in-progress: true`.
+
+Тот же набор проверок можно выполнить локально из корня репозитория:
+
+```bash
+pnpm install --frozen-lockfile
+pnpm format:check
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm test:e2e
+pnpm build
+docker compose config
+docker compose up --build -d
+curl --fail http://localhost:3000/api/v1/health
+curl --fail http://localhost:3001/api/v1/health
+docker compose down -v --remove-orphans
+```
+
+> **Windows PowerShell.** В Windows PowerShell `curl` может быть alias для `Invoke-WebRequest`.
+> Для bash-совместимых аргументов используйте `curl.exe --fail ...`,
+> либо используйте `Invoke-RestMethod`.
+
 ## Конфигурация
 
 - `backend/.env.example` — `NODE_ENV`, порт API и явно заданный список CORS origins.
@@ -143,7 +175,7 @@ CORS_ORIGIN=https://app.example.com,https://admin.example.com
 
 ## Ограничение проверки Docker
 
-В текущей среде Docker Engine отсутствует, поэтому сборка Dockerfile и запуск Compose не подтверждены. Перед созданием CI quality-gates PR необходимо выполнить на машине или runner с Docker Engine:
+В текущей среде Docker Engine отсутствует, поэтому сборка Dockerfile и запуск Compose в песочнице не подтверждены; контейнерный сценарий автоматически проверяется CI на GitHub runner с Docker Engine (см. «Проверки в CI»). Для ручной проверки выполните на машине или runner с Docker Engine:
 
 ```bash
 docker compose config
