@@ -11,8 +11,7 @@ type HealthResponse = {
 
 type HealthState = 'loading' | 'available' | 'unavailable';
 
-const apiBaseUrl = (process.env.NEXT_PUBLIC_API_BASE_URL ?? '/api').replace(/\/$/, '');
-const healthUrl = `${apiBaseUrl}/v1/health`;
+const healthUrl = '/api/v1/health';
 
 function isHealthResponse(payload: unknown): payload is HealthResponse {
   return (
@@ -70,17 +69,17 @@ export default function Home(): ReactElement {
   }, []);
 
   const statusMessage = {
-    loading: 'Checking backend availability…',
-    available: 'Backend is available',
-    unavailable: 'Backend is temporarily unavailable',
+    loading: 'Проверяем доступность сервера…',
+    available: 'Сервер доступен',
+    unavailable: 'Сервер временно недоступен',
   }[healthState];
 
   return (
     <main className="page-shell">
       <section className="card" aria-labelledby="page-title">
-        <p className="eyebrow">Development environment</p>
+        <p className="eyebrow">Среда разработки</p>
         <h1 id="page-title">Tender Assistant</h1>
-        <p className="intro">A foundation for a verifiable tender analysis workflow.</p>
+        <p className="intro">Основа для проверяемого процесса анализа тендеров.</p>
         <p className={`status status-${healthState}`} role="status" aria-live="polite">
           <span aria-hidden="true" className="status-dot" />
           {statusMessage}

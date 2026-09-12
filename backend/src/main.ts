@@ -1,13 +1,16 @@
-import { ConfigService } from '@nestjs/config';
-
 import { createApp } from './app';
+import configuration from './configuration';
 
 async function bootstrap(): Promise<void> {
-  const app = await createApp();
-  const configService = app.get(ConfigService);
-  const port = configService.get<number>('port', 3000);
+  const { port } = configuration();
+  const app = await createApp({ logger: false });
 
   await app.listen(port, '0.0.0.0');
 }
 
-void bootstrap();
+function handleBootstrapFailure(): void {
+  console.error('[bootstrap] API failed to start');
+  process.exitCode = 1;
+}
+
+void bootstrap().catch(handleBootstrapFailure);

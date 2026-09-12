@@ -9,10 +9,6 @@ RUN corepack enable && pnpm install --frozen-lockfile
 
 COPY frontend ./frontend
 
-ARG NEXT_PUBLIC_API_BASE_URL=/api
-ARG BACKEND_INTERNAL_URL=http://backend:3000
-ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
-ENV BACKEND_INTERNAL_URL=$BACKEND_INTERNAL_URL
 ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN pnpm --filter @tender-assistant/frontend build \
@@ -27,6 +23,7 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PORT=3000
+ENV BACKEND_INTERNAL_URL=http://backend:3000
 ENV NEXT_TELEMETRY_DISABLED=1
 
 COPY --from=build /prod/frontend ./

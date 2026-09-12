@@ -4,7 +4,7 @@ B2B веб-инструмент для агрегации, парсинга и �
 
 ## Технологический стек
 
-- **Backend:** Node.js 22 + TypeScript + NestJS
+- **Backend:** Node.js 22.22.3 + TypeScript + NestJS
 - **Frontend:** React 19 + Next.js 16
 - **Package manager:** pnpm 12
 - **Дальнейшие этапы:** PostgreSQL/pgvector, объектное хранилище и фоновые задачи будут добавлены отдельными задачами.
@@ -28,8 +28,15 @@ tender-assistant/
 
 ### Требования
 
-- Node.js 22 или новее
-- pnpm 12.4.1. Если pnpm не установлен глобально, включите Corepack:
+- Node.js `22.22.3`. Версия зафиксирована в `.nvmrc` и совпадает с Docker base image:
+
+  ```bash
+  nvm install
+  nvm use
+  ```
+
+  Если `nvm` не используется, установите Node.js `22.22.3` другим способом.
+- pnpm `12.4.1`. Если pnpm не установлен глобально, включите Corepack:
 
   ```bash
   corepack enable
@@ -53,7 +60,7 @@ tender-assistant/
    cp frontend/.env.example frontend/.env.local
    ```
 
-   `NEXT_PUBLIC_API_BASE_URL=/api` оставляет запросы frontend same-origin. Next.js проксирует `/api/*` к адресу из `BACKEND_INTERNAL_URL`; браузер не обращается к localhost другого сервиса напрямую.
+   `BACKEND_INTERNAL_URL` используется только server-side Route Handler Next.js. Браузер всегда обращается к same-origin endpoint `/api/v1/health`; внутренний URL backend не попадает в клиентский JavaScript.
 
 3. Запустите backend и frontend одновременно:
 
@@ -61,15 +68,21 @@ tender-assistant/
    pnpm dev
    ```
 
-4. Откройте <http://localhost:3001>. Страница должна показать `Backend is available`.
+4. Откройте <http://localhost:3001>. Страница должна показать `Сервер доступен`.
 
-   Проверить API отдельно можно так:
+   Проверить backend напрямую можно так:
 
    ```bash
-   curl -i http://localhost:3000/api/v1/health
+   curl --fail -i http://localhost:3000/api/v1/health
    ```
 
-   Ожидаемый ответ содержит поля `status`, `service` и `timestamp`, например:
+   Проверить frontend Route Handler и его proxy к backend можно так:
+
+   ```bash
+   curl --fail -i http://localhost:3001/api/v1/health
+   ```
+
+   Ожидаемый успешный ответ содержит поля `status`, `service` и `timestamp`, например:
 
    ```json
    {
@@ -91,6 +104,7 @@ docker compose up --build
 
 - frontend: <http://localhost:3001>
 - backend health: <http://localhost:3000/api/v1/health>
+- frontend health proxy: <http://localhost:3001/api/v1/health>
 
 Остановить контейнеры:
 
@@ -113,17 +127,34 @@ pnpm test:e2e
 pnpm build
 ```
 
-Или запускать команды из конкретного workspace согласно его `package.json`. Для Docker-конфигурации:
+Для конфигурации CORS используйте точный production allowlist, например:
 
 ```bash
-docker compose config
+CORS_ORIGIN=https://app.example.com,https://admin.example.com
 ```
+
+Не используйте wildcard `*` для production.
 
 ## Конфигурация
 
 - `backend/.env.example` — `NODE_ENV`, порт API и явно заданный список CORS origins.
-- `frontend/.env.example` — публичный путь API и внутренний URL backend для server-side rewrite.
+- `frontend/.env.example` — `BACKEND_INTERNAL_URL`, доступный только server-side Route Handler.
 - Реальные `.env` и `.env.local` не должны коммититься. Секретов в текущей конфигурации нет.
+
+## Ограничение проверки Docker
+
+В текущей среде Docker Engine отсутствует, поэтому сборка Dockerfile и запуск Compose не подтверждены. Перед созданием CI quality-gates PR необходимо выполнить на машине или runner с Docker Engine:
+
+```bash
+docker compose config
+docker compose build
+docker compose up -d
+curl --fail http://localhost:3000/api/v1/health
+curl --fail http://localhost:3001/api/v1/health
+docker compose down -v
+```
+
+Ожидаемый результат второго `curl` — health JSON, возвращённый frontend Route Handler после обращения к backend.
 
 ## Scope bootstrap-окружения
 
