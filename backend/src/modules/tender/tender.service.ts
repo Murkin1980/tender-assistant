@@ -1,6 +1,7 @@
 import { Inject, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { Lot, LotFilters } from './lot';
+import type { AssessedLot, LotFilters } from './lot';
+import { assessLot } from './lot-assessment';
 import {
   DEFAULT_LOT_SOURCE_MODE,
   LOT_SOURCE,
@@ -27,24 +28,31 @@ export class TenderService {
     return LOT_SOURCE_STATUS[mode];
   }
 
-  async list(filters: LotFilters): Promise<Lot[]> {
+  async list(filters: LotFilters): Promise<AssessedLot[]> {
     const lots = await this.fromSource(() => this.source.fetchLots(filters));
-    return lots.filter(
-      (lot) =>
-        (filters.maxAmount === undefined || lot.amount <= filters.maxAmount) &&
-        (!filters.region || normalize(lot.region) === normalize(filters.region)) &&
-        (!filters.district || normalize(lot.district ?? '') === normalize(filters.district)) &&
-        (!filters.q ||
-          normalize([lot.title, lot.customer, lot.description].join(' ')).includes(
-            normalize(filters.q),
-          )),
+    return (
+      lots
+        .filter(
+          (lot) =>
+            (filters.maxAmount === undefined || lot.amount <= filters.maxAmount) &&
+            (!filters.region || normalize(lot.region) === normalize(filters.region)) &&
+            (!filters.district || normalize(lot.district ?? '') === normalize(filters.district)) &&
+            (!filters.q ||
+              normalize([lot.title, lot.customer, lot.description].join(' ')).includes(
+                normalize(filters.q),
+              )),
+        )
+        // The assessment is derived here, once, for every lot of every source.
+        .map((lot): AssessedLot => ({ ...lot, assessment: assessLot(lot) }))
+        // The status filter is local by design and is never part of what a source was asked for.
+        .filter((lot) => !filters.status || lot.assessment.status === filters.status)
     );
   }
 
-  async get(id: string): Promise<Lot> {
+  async get(id: string): Promise<AssessedLot> {
     const lot = await this.fromSource(() => this.source.fetchLot(id));
     if (!lot) throw new NotFoundException('Lot not found');
-    return lot;
+    return { ...lot, assessment: assessLot(lot) };
   }
 
   /** An unavailable live source is a safe temporary failure — never a fixture fallback. */

@@ -23,6 +23,35 @@ const lot: Lot = {
   district: 'Алатауский',
   bidDeadline: '2026-10-15T12:00:00.000Z',
   description: 'Ламинированная плита, доставка и сборка.',
+  assessment: {
+    status: 'MATCH',
+    reasons: [
+      'Amount is within 500,000 KZT',
+      'Region is Almaty',
+      'LDSP signal found',
+      'Preferred district: Alatau',
+    ],
+  },
+};
+
+const reviewLot: Lot = {
+  ...lot,
+  id: 'api-review',
+  district: null,
+  assessment: {
+    status: 'REVIEW',
+    reasons: ['Amount is within 500,000 KZT', 'Insufficient evidence for automatic match'],
+  },
+};
+
+const excludedLot: Lot = {
+  ...lot,
+  id: 'api-excluded',
+  amount: 780000,
+  assessment: {
+    status: 'EXCLUDE',
+    reasons: ['Amount exceeds 500,000 KZT', 'Metallic cabinet signal found'],
+  },
 };
 
 const liveLot: Lot = {
@@ -111,6 +140,60 @@ describe('Lots server pages through the backend API', () => {
     ])
       expect(html).toContain(text);
     expect(html).not.toContain('http://backend');
+  });
+
+  it('shows the triage status of every listed lot and the operator note', async () => {
+    mockApi({ list: response([lot, reviewLot, excludedLot]) });
+    const html = renderToStaticMarkup(await LotsPage({ searchParams: Promise.resolve({}) }));
+
+    for (const status of ['MATCH', 'REVIEW', 'EXCLUDE']) {
+      expect(html).toContain(`data-status="${status}"`);
+      expect(html).toContain(`>${status}</span>`);
+    }
+    expect(html).toContain(
+      'Статус — автоматический предварительный отбор по простым правилам. Финальное решение принимает оператор.',
+    );
+    expect(html).not.toContain('рекоменд');
+  });
+
+  it('applies the assessment status filter without dropping the other query parameters', async () => {
+    mockApi({ list: response([lot]) });
+    const html = renderToStaticMarkup(
+      await LotsPage({
+        searchParams: Promise.resolve({
+          q: 'ЛДСП',
+          maxAmount: '500000',
+          region: 'Алматы',
+          district: 'Алатауский',
+          status: 'MATCH',
+        }),
+      }),
+    );
+
+    const url = new URL(callsTo('/api/v1/lots')[0] as string);
+    expect(Object.fromEntries(url.searchParams)).toEqual({
+      q: 'ЛДСП',
+      maxAmount: '500000',
+      region: 'Алматы',
+      district: 'Алатауский',
+      status: 'MATCH',
+    });
+    for (const text of [
+      'name="status"',
+      'selected="">MATCH',
+      'value="500000"',
+      'value="ЛДСП"',
+      'value="Алатауский"',
+    ])
+      expect(html).toContain(text);
+  });
+
+  it('never hides excluded lots behind the default status', async () => {
+    mockApi({ list: response([lot, excludedLot]) });
+    const html = renderToStaticMarkup(await LotsPage({ searchParams: Promise.resolve({}) }));
+
+    expect(html).toContain(excludedLot.title);
+    expect(html).toContain('data-status="EXCLUDE"');
   });
 
   it('offers a shareable current-profile preset that fills amount and Almaty only', async () => {
@@ -221,6 +304,17 @@ describe('Lots server pages through the backend API', () => {
     expect(html).not.toContain('Тестовые данные');
   });
 
+  it('renders the assessment status and its reasons on the detail page', async () => {
+    mockApi({ source: response(fixtureSource), detail: response(excludedLot) });
+    const html = renderToStaticMarkup(
+      await LotPage({ params: Promise.resolve({ id: excludedLot.id }) }),
+    );
+
+    expect(html).toContain('Статус');
+    expect(html).toContain('data-status="EXCLUDE"');
+    for (const reason of excludedLot.assessment.reasons) expect(html).toContain(reason);
+  });
+
   it('reads a live detail page whose id arrives percent-encoded, as Next delivers it', async () => {
     mockApi({ source: response(liveSource), detail: response(liveLot) });
     const html = renderToStaticMarkup(
@@ -297,9 +391,13 @@ describe('Lots server pages through the backend API', () => {
     expect(renderToStaticMarkup(createElement(LotNotFound))).toContain('href="/lots"');
   });
 
-  it('only forwards supported scalar filters', () => {
+  it('only forwards supported scalar filters and known assessment statuses', () => {
     expect(
       lotQuery({ q: ' table ', district: '', other: 'ignored', region: ['a', 'b'] }).toString(),
     ).toBe('q=table');
+    expect(lotQuery({ status: ' review ' }).toString()).toBe('status=REVIEW');
+    const unknown = lotQuery({ status: 'unknown', q: 'стол' });
+    expect(unknown.get('status')).toBeNull();
+    expect(unknown.get('q')).toBe('стол');
   });
 });
