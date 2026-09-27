@@ -2,7 +2,13 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { TenderController } from './tender.controller';
 import { TenderService } from './tender.service';
-import { FixtureLotSource, LOT_SOURCE } from './lot.source';
+import {
+  DEFAULT_LOT_SOURCE_MODE,
+  FixtureLotSource,
+  LOT_SOURCE,
+  type LotSource,
+  type LotSourceMode,
+} from './lot.source';
 import { GoszakupLotSource } from './goszakup/goszakup.source';
 import { GoszakupClient } from './goszakup/goszakup.client';
 
@@ -10,9 +16,21 @@ import { GoszakupClient } from './goszakup/goszakup.client';
   controllers: [TenderController],
   providers: [
     TenderService,
-    // The public API stays fixture-backed: no live source is bound to `LOT_SOURCE` here.
-    { provide: LOT_SOURCE, useClass: FixtureLotSource },
-    // Backend-only integration boundary, used by the developer probe; never reached from a browser.
+    FixtureLotSource,
+    // The only place configuration selects the public data path; the default is `fixture`.
+    {
+      provide: LOT_SOURCE,
+      useFactory: (
+        config: ConfigService,
+        fixtures: FixtureLotSource,
+        goszakup: GoszakupLotSource,
+      ): LotSource =>
+        config.get<LotSourceMode>('lotSourceMode', DEFAULT_LOT_SOURCE_MODE) === 'goszakup'
+          ? goszakup
+          : fixtures,
+      inject: [ConfigService, FixtureLotSource, GoszakupLotSource],
+    },
+    // Backend-only integration boundary; never reached from a browser.
     {
       provide: GoszakupClient,
       useFactory: (config: ConfigService): GoszakupClient =>

@@ -5,12 +5,24 @@ import type { Lot } from '../src/modules/tender/lot';
 
 describe('Lots API', () => {
   let app: INestApplication;
+  const originalLotSource = process.env.TENDER_LOT_SOURCE;
+
   beforeAll(async () => {
+    // No `TENDER_LOT_SOURCE` at all: the application must stay fixture-backed by default.
+    delete process.env.TENDER_LOT_SOURCE;
     app = await createApp({ logger: false });
     await app.init();
   });
   afterAll(async () => {
     await app.close();
+    if (originalLotSource === undefined) delete process.env.TENDER_LOT_SOURCE;
+    else process.env.TENDER_LOT_SOURCE = originalLotSource;
+  });
+
+  it('reports the default fixture source and no live access', async () => {
+    const response = await request(app.getHttpServer()).get('/api/v1/lots/source').expect(200);
+
+    expect(response.body).toEqual({ mode: 'fixture', live: false, label: 'Demo fixtures' });
   });
 
   it('lists deterministic records and serves the same full detail contract', async () => {

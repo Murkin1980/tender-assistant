@@ -17,6 +17,7 @@ describe('configuration', () => {
     GOSZAKUP_TOKEN: process.env.GOSZAKUP_TOKEN,
     NODE_ENV: process.env.NODE_ENV,
     PORT: process.env.PORT,
+    TENDER_LOT_SOURCE: process.env.TENDER_LOT_SOURCE,
   };
 
   afterEach(() => {
@@ -26,6 +27,7 @@ describe('configuration', () => {
     restoreEnvironmentVariable('GOSZAKUP_TOKEN', originalEnvironment.GOSZAKUP_TOKEN);
     restoreEnvironmentVariable('NODE_ENV', originalEnvironment.NODE_ENV);
     restoreEnvironmentVariable('PORT', originalEnvironment.PORT);
+    restoreEnvironmentVariable('TENDER_LOT_SOURCE', originalEnvironment.TENDER_LOT_SOURCE);
   });
 
   it.each(['not-a-number', '0', '65536'])('rejects invalid PORT value %s', (port) => {
@@ -79,6 +81,33 @@ describe('configuration', () => {
     process.env.GOSZAKUP_GRAPHQL_URL = 'ows.goszakup.gov.kz/v3/graphql';
     expect(() => configuration()).toThrow('GOSZAKUP_GRAPHQL_URL must be a valid absolute URL');
   });
+
+  it('defaults the public lot source to fixtures when TENDER_LOT_SOURCE is unset', () => {
+    delete process.env.TENDER_LOT_SOURCE;
+
+    expect(configuration().lotSourceMode).toBe('fixture');
+  });
+
+  it('treats an empty TENDER_LOT_SOURCE as unset', () => {
+    process.env.TENDER_LOT_SOURCE = '  ';
+
+    expect(configuration().lotSourceMode).toBe('fixture');
+  });
+
+  it.each(['fixture', 'goszakup'])('accepts the explicit lot source %s', (mode) => {
+    process.env.TENDER_LOT_SOURCE = ` ${mode} `;
+
+    expect(configuration().lotSourceMode).toBe(mode);
+  });
+
+  it.each(['GOSZAKUP', 'Fixtures', 'live', 'fixture,goszakup'])(
+    'rejects the unknown TENDER_LOT_SOURCE value %s',
+    (mode) => {
+      process.env.TENDER_LOT_SOURCE = mode;
+
+      expect(() => configuration()).toThrow('TENDER_LOT_SOURCE must be one of: fixture | goszakup');
+    },
+  );
 
   it.each(['0', '-5', '1.5', 'abc'])('rejects invalid GOSZAKUP_TIMEOUT_MS value %s', (timeout) => {
     process.env.GOSZAKUP_TIMEOUT_MS = timeout;

@@ -1,4 +1,8 @@
-import { mapGoszakupLot, mapGoszakupLots } from '../src/modules/tender/goszakup/goszakup.mapper';
+import {
+  mapGoszakupLot,
+  mapGoszakupLots,
+  parseGoszakupLotId,
+} from '../src/modules/tender/goszakup/goszakup.mapper';
 import type { Lot } from '../src/modules/tender/lot';
 import type { GoszakupLotDto } from '../src/modules/tender/goszakup/goszakup-lots.query';
 import { FULL_LOT, MINIMAL_LOT, UNUSABLE_LOTS } from './fixtures/goszakup-lots.fixture';
@@ -112,5 +116,32 @@ describe('mapGoszakupLots', () => {
 
   it('returns an empty list for an empty page', () => {
     expect(mapGoszakupLots([])).toEqual([]);
+  });
+});
+
+describe('parseGoszakupLotId', () => {
+  it('reads the registry id back from a normalized public id', () => {
+    expect(parseGoszakupLotId('goszakup:900000001')).toBe(900000001);
+    expect(parseGoszakupLotId('goszakup:1')).toBe(1);
+    expect(parseGoszakupLotId('goszakup:2147483647')).toBe(2147483647);
+  });
+
+  it.each([
+    ['fixture-1'],
+    ['900000001'],
+    ['goszakup:'],
+    ['goszakup:abc'],
+    ['goszakup:1.5'],
+    ['goszakup:-5'],
+    ['goszakup:0'],
+    ['goszakup: 1'],
+    ['gOSzakup:1'],
+    ['goszakup:1 '],
+    // Beyond the signed 32-bit range the official `Int` filter cannot carry the id.
+    ['goszakup:2147483648'],
+    ['goszakup:9007199254740993'],
+    [''],
+  ])('rejects the unusable id %s', (id) => {
+    expect(parseGoszakupLotId(id)).toBeNull();
   });
 });

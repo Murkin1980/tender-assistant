@@ -15,6 +15,20 @@ export interface GoszakupProbeResult {
   exitCode: number;
 }
 
+/**
+ * Backend-side failure chain. Upstream detail is deliberately kept out of the public API but is
+ * exactly what a developer probe needs, and it is already redacted by the client.
+ */
+function describeFailure(error: unknown): string {
+  const messages: string[] = [];
+  let current: unknown = error;
+  while (current instanceof Error && messages.length < 5) {
+    if (current.message) messages.push(current.message);
+    current = (current as Error & { cause?: unknown }).cause;
+  }
+  return messages.length > 0 ? messages.join(' → ') : String(error);
+}
+
 const summarizeLot = (lot: Lot): string =>
   [
     lot.id,
@@ -55,8 +69,7 @@ export async function runGoszakupProbe(
     lines.push('Read-only probe: nothing was persisted, no token was printed.');
     return { status: 'PASS', lines, exitCode: 0 };
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    lines.push(`Goszakup probe failed: ${message}`);
+    lines.push(`Goszakup probe failed: ${describeFailure(error)}`);
     return { status: 'FAILED', lines, exitCode: 1 };
   } finally {
     await context.close();

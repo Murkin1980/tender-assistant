@@ -14,6 +14,26 @@ export interface Lot {
 
 export type SearchParams = Record<string, string | string[] | undefined>;
 
+/** Mirrors `GET /api/v1/lots/source`; it carries no token and no backend configuration. */
+export interface LotSourceStatus {
+  mode: string;
+  live: boolean;
+  label: string;
+}
+
+function isLotSourceStatus(value: unknown): value is LotSourceStatus {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'mode' in value &&
+    typeof value.mode === 'string' &&
+    'live' in value &&
+    typeof value.live === 'boolean' &&
+    'label' in value &&
+    typeof value.label === 'string'
+  );
+}
+
 export function lotQuery(params: SearchParams): URLSearchParams {
   const query = new URLSearchParams();
   for (const key of ['q', 'maxAmount', 'region', 'district']) {
@@ -31,6 +51,23 @@ export async function fetchLotsApi(path: string): Promise<Response> {
     cache: 'no-store',
     signal: AbortSignal.timeout(3000),
   });
+}
+
+/**
+ * Active source of the list/detail pages.
+ *
+ * @returns the status, or `null` when it cannot be read — the pages then make no claim about the
+ *          origin of the data instead of guessing.
+ */
+export async function fetchLotSourceStatus(): Promise<LotSourceStatus | null> {
+  try {
+    const response = await fetchLotsApi('/source');
+    if (!response.ok) return null;
+    const payload: unknown = await response.json();
+    return isLotSourceStatus(payload) ? payload : null;
+  } catch {
+    return null;
+  }
 }
 
 export const amountLabel = (amount: number): string =>
