@@ -1,0 +1,116 @@
+import { mapGoszakupLot, mapGoszakupLots } from '../src/modules/tender/goszakup/goszakup.mapper';
+import type { Lot } from '../src/modules/tender/lot';
+import type { GoszakupLotDto } from '../src/modules/tender/goszakup/goszakup-lots.query';
+import { FULL_LOT, MINIMAL_LOT, UNUSABLE_LOTS } from './fixtures/goszakup-lots.fixture';
+
+describe('mapGoszakupLot', () => {
+  it('normalizes a full OWS v3 record into the existing lot contract', () => {
+    expect(mapGoszakupLot(FULL_LOT)).toEqual({
+      id: 'goszakup:900000001',
+      source: 'goszakup',
+      sourceUrl: 'https://goszakup.gov.kz/ru/view/lots/index/id/900000001',
+      title: 'Столы из ЛДСП (пример)',
+      customer: 'Учебный центр (пример)',
+      amount: 420000,
+      region: 'Алматы',
+      district: null,
+      bidDeadline: '2026-10-20T12:00:00.000Z',
+      description: 'Шесть столов из ЛДСП с доставкой. БИН заказчика: 000740000001',
+    });
+  });
+
+  it('falls back to the state-language fields and the nested customer object', () => {
+    const lot = mapGoszakupLot({
+      id: 900000010,
+      amount: 120000,
+      nameKz: 'Үстелдер',
+      customerNameKz: 'Кітапхана',
+      Customer: { bin: '000740000002' },
+    });
+
+    expect(lot).toMatchObject({
+      title: 'Үстелдер',
+      customer: 'Кітапхана',
+      description: 'БИН заказчика: 000740000002',
+    });
+  });
+
+  it('keeps fields the registry did not supply empty instead of inventing them', () => {
+    const lot = mapGoszakupLot(MINIMAL_LOT);
+
+    expect(lot).toEqual({
+      id: 'goszakup:900000002',
+      source: 'goszakup',
+      sourceUrl: 'https://goszakup.gov.kz/ru/view/lots/index/id/900000002',
+      title: '',
+      customer: '',
+      amount: 500000,
+      region: '',
+      district: null,
+      bidDeadline: '',
+      description: '',
+    });
+  });
+
+  it('resolves КАТО delivery codes to region names and keeps unknown codes verbatim', () => {
+    const regionFor = (plnPointKatoList: string[]): string =>
+      mapGoszakupLot({ id: 1, amount: 1, plnPointKatoList })?.region ?? '';
+
+    expect(regionFor(['751030000'])).toBe('Алматы');
+    expect(regionFor(['710000000'])).toBe('Астана');
+    expect(regionFor(['190000000', '751030000'])).toBe('Алматинская область, Алматы');
+    // Two codes of the same region collapse into one region name.
+    expect(regionFor(['751030000', '750000000'])).toBe('Алматы');
+    expect(regionFor(['999999999'])).toBe('999999999');
+    expect(regionFor([])).toBe('');
+  });
+
+  it('accepts the documented timestamp formats and drops unparsable dates', () => {
+    const deadlineFor = (endDate: string): string =>
+      mapGoszakupLot({ id: 1, amount: 1, TrdBuy: { endDate } })?.bidDeadline ?? '';
+
+    expect(deadlineFor('2026-10-20T12:00:00Z')).toBe('2026-10-20T12:00:00.000Z');
+    expect(deadlineFor('2026-10-20T12:00:00+05:00')).toBe('2026-10-20T07:00:00.000Z');
+    expect(deadlineFor('not-a-date')).toBe('');
+  });
+
+  it('skips records without a usable id or amount', () => {
+    for (const lot of UNUSABLE_LOTS) {
+      expect(mapGoszakupLot(lot)).toBeNull();
+    }
+    expect(mapGoszakupLot(null)).toBeNull();
+    expect(mapGoszakupLot(undefined)).toBeNull();
+    // A non-numeric amount is malformed upstream data, not a zero-price lot.
+    expect(mapGoszakupLot({ id: 5, amount: '420000' as unknown as number })).toBeNull();
+  });
+
+  it('trims surrounding whitespace of upstream text', () => {
+    const lot = mapGoszakupLot({
+      id: 900000011,
+      amount: 10,
+      nameRu: '  Стеллажи  ',
+      customerNameRu: ' Библиотека ',
+      customerBin: ' 000740000003 ',
+    }) as Lot;
+
+    expect(lot.title).toBe('Стеллажи');
+    expect(lot.customer).toBe('Библиотека');
+    expect(lot.description).toBe('БИН заказчика: 000740000003');
+  });
+});
+
+describe('mapGoszakupLots', () => {
+  it('normalizes a page in upstream order and drops unusable records', () => {
+    const [unusable] = UNUSABLE_LOTS;
+    const page: GoszakupLotDto[] = [FULL_LOT, unusable as GoszakupLotDto, MINIMAL_LOT];
+
+    expect(mapGoszakupLots(page).map((lot) => lot.id)).toEqual([
+      'goszakup:900000001',
+      'goszakup:900000002',
+    ]);
+  });
+
+  it('returns an empty list for an empty page', () => {
+    expect(mapGoszakupLots([])).toEqual([]);
+  });
+});
