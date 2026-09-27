@@ -1,5 +1,10 @@
 import type { Lot } from '../lot';
-import { GOSZAKUP_ID_PREFIX, GOSZAKUP_LOT_URL_BASE, GOSZAKUP_SOURCE } from './goszakup.config';
+import {
+  GOSZAKUP_ID_PREFIX,
+  GOSZAKUP_LOT_URL_BASE,
+  GOSZAKUP_MAX_LOT_ID,
+  GOSZAKUP_SOURCE,
+} from './goszakup.config';
 import type { GoszakupLotDto } from './goszakup-lots.query';
 
 /**
@@ -104,4 +109,21 @@ export function mapGoszakupLots(lots: readonly GoszakupLotDto[]): Lot[] {
     if (normalized) mapped.push(normalized);
   }
   return mapped;
+}
+
+/**
+ * Inverse of the id mapping above: the registry id behind a normalized public id.
+ *
+ * @returns `null` for anything that is not exactly `goszakup:<positive registry id>` — an id of
+ *          another source, a malformed id or a value the upstream `Int` cannot carry. Such an id
+ *          cannot exist in the registry and must not be turned into an upstream query.
+ */
+export function parseGoszakupLotId(id: string): number | null {
+  if (typeof id !== 'string' || !id.startsWith(GOSZAKUP_ID_PREFIX)) return null;
+
+  const registryId = id.slice(GOSZAKUP_ID_PREFIX.length);
+  if (!/^\d+$/.test(registryId)) return null;
+
+  const numeric = Number(registryId);
+  return numeric > 0 && numeric <= GOSZAKUP_MAX_LOT_ID ? numeric : null;
 }

@@ -176,3 +176,22 @@ h1 {
     margin-bottom: 12px;
   }
 }
+.source-notice {
+  padding: 12px 16px;
+  border: 1px solid #dbe4f0;
+  border-left-width: 6px;
+  border-radius: 8px;
+  background: #f8fafd;
+}
+.source-notice .source-badge {
+  letter-spacing: 0.08em;
+}
+.source-notice[data-source='fixture'] {
+  border-left-color: #b8860b;
+}
+.source-notice[data-source='goszakup'] {
+  border-left-color: #1e9c68;
+}
+.source-notice[data-source='unknown'] {
+  border-left-color: #8290a8;
+}

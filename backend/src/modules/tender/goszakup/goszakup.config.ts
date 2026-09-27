@@ -11,8 +11,17 @@ export const DEFAULT_GOSZAKUP_TIMEOUT_MS = 15_000;
 export const GOSZAKUP_MIN_LIMIT = 1;
 export const GOSZAKUP_MAX_LIMIT = 200;
 
+/**
+ * Records fetched for the public live list when no limit is requested. One bounded request,
+ * deliberately far below the 200-record page maximum: `/lots` never crawls the registry.
+ */
+export const DEFAULT_LIVE_LOTS_LIMIT = 20;
+
 /** Value written to `Lot.source` for every normalized Goszakup lot. */
 export const GOSZAKUP_SOURCE = 'goszakup';
 
 /** Prefix that keeps upstream ids stable and unique next to other sources. */
 export const GOSZAKUP_ID_PREFIX = 'goszakup:';
+
+/** `Lots.id` is a GraphQL `Int`: the schema cannot carry anything above the signed 32-bit range. */
+export const GOSZAKUP_MAX_LOT_ID = 2_147_483_647;

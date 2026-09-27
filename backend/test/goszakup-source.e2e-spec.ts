@@ -13,10 +13,13 @@ const TOKEN = 'e2e-secret-token-must-not-leak';
 describe('Lots API with a configured Goszakup token', () => {
   let app: INestApplication;
   const originalToken = process.env.GOSZAKUP_TOKEN;
+  const originalLotSource = process.env.TENDER_LOT_SOURCE;
   const originalFetch = globalThis.fetch;
 
   beforeAll(async () => {
     process.env.GOSZAKUP_TOKEN = TOKEN;
+    // Even a configured token must not switch the default source: only `TENDER_LOT_SOURCE` does.
+    delete process.env.TENDER_LOT_SOURCE;
     // Any attempt to reach the registry from the request path would fail loudly.
     globalThis.fetch = jest.fn(async () => {
       throw new Error('The public API must not call Goszakup');
@@ -31,6 +34,8 @@ describe('Lots API with a configured Goszakup token', () => {
     globalThis.fetch = originalFetch;
     if (originalToken === undefined) delete process.env.GOSZAKUP_TOKEN;
     else process.env.GOSZAKUP_TOKEN = originalToken;
+    if (originalLotSource === undefined) delete process.env.TENDER_LOT_SOURCE;
+    else process.env.TENDER_LOT_SOURCE = originalLotSource;
   });
 
   it('keeps /lots fixture-backed and free of the token', async () => {
@@ -47,6 +52,13 @@ describe('Lots API with a configured Goszakup token', () => {
     expect(response.body.id).toBe('fixture-1');
     expect(response.text).not.toContain(TOKEN);
     expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+
+  it('reports the fixture source and never the configured token', async () => {
+    const response = await request(app.getHttpServer()).get('/api/v1/lots/source').expect(200);
+
+    expect(response.body).toEqual({ mode: 'fixture', live: false, label: 'Demo fixtures' });
+    expect(response.text).not.toContain(TOKEN);
   });
 
   it('does not expose the token through the health endpoint or response headers', async () => {

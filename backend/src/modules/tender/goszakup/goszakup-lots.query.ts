@@ -57,6 +57,8 @@ export interface GoszakupGraphqlResponse {
  * stays untouched.
  */
 export interface GoszakupLotsFilter {
+  /** `id: [Int]` — documented official lookup of specific lots by their registry id. */
+  id?: number[];
   nameDescriptionRu?: string;
   refLotStatusId?: number[];
   plnPointKatoList?: string;
