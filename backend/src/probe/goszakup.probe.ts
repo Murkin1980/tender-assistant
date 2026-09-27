@@ -62,7 +62,7 @@ export async function runGoszakupProbe(
   const context = await NestFactory.createApplicationContext(AppModule, { logger: false });
   try {
     const source = context.get(GoszakupLotSource);
-    const lots = await source.fetchLots(limit);
+    const lots = await source.fetchLots(undefined, limit);
     lines.push(`Goszakup OWS v3 returned ${lots.length} normalized lot(s) for limit=${limit}.`);
     const [first] = lots;
     if (first) lines.push(`First normalized lot: ${summarizeLot(first)}`);

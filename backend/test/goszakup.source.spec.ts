@@ -7,6 +7,7 @@ import {
 } from '../src/modules/tender/goszakup/goszakup.client';
 import { DEFAULT_LIVE_LOTS_LIMIT } from '../src/modules/tender/goszakup/goszakup.config';
 import type { GoszakupLotDto } from '../src/modules/tender/goszakup/goszakup-lots.query';
+import { translateGoszakupLotFilters } from '../src/modules/tender/goszakup/goszakup-filter.translator';
 import { LOT_FIXTURES } from '../src/modules/tender/lots.fixtures';
 import { FULL_LOT, MINIMAL_LOT, UNUSABLE_LOTS } from './fixtures/goszakup-lots.fixture';
 
@@ -15,11 +16,10 @@ describe('FixtureLotSource', () => {
     await expect(new FixtureLotSource().fetchLots()).resolves.toEqual(LOT_FIXTURES);
   });
 
-  it('honours the limit and never exposes the fixture array itself', async () => {
+  it('returns a deterministic copy and leaves filtering to the shared service path', async () => {
     const source = new FixtureLotSource();
 
-    await expect(source.fetchLots(2)).resolves.toEqual(LOT_FIXTURES.slice(0, 2));
-    await expect(source.fetchLots(0)).resolves.toEqual([]);
+    await expect(source.fetchLots({ maxAmount: 1 })).resolves.toEqual(LOT_FIXTURES);
 
     const lots = await source.fetchLots();
     lots.pop();
@@ -49,7 +49,7 @@ describe('GoszakupLotSource', () => {
     const client = clientStub([FULL_LOT, UNUSABLE_LOTS[0] as GoszakupLotDto, MINIMAL_LOT]);
     const source = new GoszakupLotSource(client);
 
-    const lots = await source.fetchLots(10);
+    const lots = await source.fetchLots(undefined, 10);
 
     expect(client.fetchLots).toHaveBeenCalledWith({ limit: 10, filter: undefined });
     expect(lots.map((lot) => lot.id)).toEqual(['goszakup:900000001', 'goszakup:900000002']);
@@ -60,17 +60,37 @@ describe('GoszakupLotSource', () => {
     const client = clientStub([]);
     const source = new GoszakupLotSource(client);
 
-    await source.fetchLots(5000);
-    await source.fetchLots(0);
+    await source.fetchLots(undefined, 5000);
+    await source.fetchLots(undefined, 0);
 
     expect(client.fetchLots.mock.calls.map(([options]) => options.limit)).toEqual([200, 1]);
   });
 
-  it('passes an optional filter through to the bounded query', async () => {
+  it('translates only documented Russian name/description search', () => {
+    expect(translateGoszakupLotFilters({ q: '  ЛДСП ' })).toEqual({
+      nameDescriptionRu: 'ЛДСП',
+    });
+  });
+
+  it.each([
+    [{ maxAmount: 500000 }, undefined],
+    [{ region: 'Алматы' }, undefined],
+    [{ district: 'Алатауский' }, undefined],
+    [
+      { q: 'ЛДСП', maxAmount: 500000, region: 'Алматы', district: 'Алатауский' },
+      { nameDescriptionRu: 'ЛДСП' },
+    ],
+    [{}, undefined],
+  ])('does not invent upstream filters for %j', (filters, expected) => {
+    expect(translateGoszakupLotFilters(filters)).toEqual(expected);
+  });
+
+  it('passes translated filters to one bounded query', async () => {
     const client = clientStub([]);
 
-    await new GoszakupLotSource(client).fetchLots(5, { nameDescriptionRu: 'ЛДСП' });
+    await new GoszakupLotSource(client).fetchLots({ q: 'ЛДСП', maxAmount: 500000 }, 5);
 
+    expect(client.fetchLots).toHaveBeenCalledTimes(1);
     expect(client.fetchLots).toHaveBeenCalledWith({
       limit: 5,
       filter: { nameDescriptionRu: 'ЛДСП' },
@@ -84,7 +104,7 @@ describe('GoszakupLotSource', () => {
       }),
     } as unknown as GoszakupClient;
 
-    await expect(new GoszakupLotSource(client).fetchLots(5)).rejects.toThrow('HTTP 401');
+    await expect(new GoszakupLotSource(client).fetchLots(undefined, 5)).rejects.toThrow('HTTP 401');
   });
 });
 

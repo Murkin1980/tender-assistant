@@ -113,6 +113,24 @@ describe('Lots server pages through the backend API', () => {
     expect(html).not.toContain('http://backend');
   });
 
+  it('offers a shareable current-profile preset that fills amount and Almaty only', async () => {
+    mockApi({ source: response(liveSource), list: response([liveLot]) });
+    const html = renderToStaticMarkup(await LotsPage({ searchParams: Promise.resolve({}) }));
+
+    expect(html).toContain('Наш профиль');
+    expect(html).toContain('href="/lots?maxAmount=500000&amp;region=Алматы"');
+
+    const presetHtml = renderToStaticMarkup(
+      await LotsPage({
+        searchParams: Promise.resolve({ maxAmount: '500000', region: 'Алматы' }),
+      }),
+    );
+    expect(presetHtml).toContain('name="maxAmount"');
+    expect(presetHtml).toContain('value="500000"');
+    expect(presetHtml).toContain('selected="">Алматы');
+    expect(presetHtml).not.toContain('value="ЛДСП"');
+  });
+
   it('marks the fixture source as demo data on the list page', async () => {
     mockApi({ source: response(fixtureSource), list: response([lot]) });
     const html = renderToStaticMarkup(await LotsPage({ searchParams: Promise.resolve({}) }));
