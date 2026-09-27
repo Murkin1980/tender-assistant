@@ -13,7 +13,8 @@
     "typecheck": "tsc --noEmit",
     "test": "jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json --runInBand",
-    "test:cov": "jest --coverage --runInBand"
+    "test:cov": "jest --coverage --runInBand",
+    "probe:goszakup": "nest build && node dist/probe/goszakup.probe.js"
   },
   "dependencies": {
     "@nestjs/common": "11.1.6",

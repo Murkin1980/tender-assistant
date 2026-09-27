@@ -170,8 +170,11 @@ docker compose down -v --remove-orphans
 ## Конфигурация
 
 - `backend/.env.example` — `NODE_ENV`, порт API и явно заданный список CORS origins.
+- `backend/.env.example` также содержит необязательные переменные Goszakup: `GOSZAKUP_TOKEN`
+  (пустой по умолчанию), `GOSZAKUP_GRAPHQL_URL` и `GOSZAKUP_TIMEOUT_MS`.
 - `frontend/.env.example` — `BACKEND_INTERNAL_URL`, доступный только server-side Route Handler.
-- Реальные `.env` и `.env.local` не должны коммититься. Секретов в текущей конфигурации нет.
+- Реальные `.env` и `.env.local` не должны коммититься. Реальный `GOSZAKUP_TOKEN` нельзя
+  коммитить, печатать в логах или передавать во frontend.
 
 ## Ограничение проверки Docker
 
@@ -227,3 +230,39 @@ Goszakup, не на выдуманные объявления. Предусмо�
 комбинации фильтров, ошибки и 404. Vitest с React SSR проверяет запросы страниц к API,
 форму, ссылки, поля карточки, пустые результаты и недоступность backend.
 Новых runtime/test-зависимостей, хранилищ и deployment-изменений нет.
+
+## CP-04: Goszakup OWS v3 как backend-only источник
+
+`/lots` и `/lots/[id]` по-прежнему работают на детерминированных фикстурах: живой источник
+не подключён к публичному API и не имеет отдельного режима `source=goszakup`. CP-04 добавляет
+только границу интеграции — чтение официального реестра и нормализацию в существующий контракт
+лота.
+
+- Контракт источника: официальный GraphQL OWS v3 — `POST https://ows.goszakup.gov.kz/v3/graphql`,
+  схема `https://ows.goszakup.gov.kz/help/v3/schema/`, авторизация `Authorization: Bearer <token>`.
+- Один ограниченный read-only путь: `Query.Lots(filter, limit)` (`limit` 1–200, по умолчанию 5).
+  Мутаций в схеме не используется, повторы запросов не добавлены.
+- `GoszakupClient` (`backend/src/modules/tender/goszakup/goszakup.client.ts`) использует
+  встроенный `fetch` Node 22 с `AbortSignal.timeout`, различает сетевую ошибку, таймаут,
+  HTTP ≠ 2xx (401 — ответ реестра без валидного токена), ошибку GraphQL при HTTP 200 и
+  некорректное тело. Текст ошибки дополнительно очищается от токена.
+- Нормализация (`goszakup.mapper.ts`) сохраняет: стабильный `id` (`goszakup:<id>`),
+  `source = goszakup`, ссылку на карточку реестра, наименование (ru, иначе kk), сумму,
+  заказчика и его БИН, срок подачи заявок из `TrdBuy.endDate`, регион по кодам КАТО
+  (`plnPointKatoList`) и описание. Поля, которых реестр не отдаёт, остаются пустыми, а не
+  выдумываются: `district` всегда `null`, `bidDeadline` пустой без `endDate`. Записи без `id`
+  или `amount` отбрасываются.
+- Токен живёт только в окружении backend (`GOSZAKUP_TOKEN`); во frontend и в ответах API его
+  нет, что проверяется e2e-тестом.
+- Живая проверка — отдельная developer-only команда, она ничего не сохраняет и не печатает токен:
+
+  ```bash
+  GOSZAKUP_TOKEN=<ваш токен OWS> pnpm --filter @tender-assistant/backend probe:goszakup
+  ```
+
+  Без `GOSZAKUP_TOKEN` команда завершается с кодом 2 и сообщением `NOT RUN`; это не ошибка.
+  Дополнительно можно задать `GOSZAKUP_GRAPHQL_URL` и `GOSZAKUP_TIMEOUT_MS`.
+
+Все автоматические тесты (client, mapper, source, probe, e2e) работают без токена и без сети:
+ответы реестра представлены синтетическими фикстурами в `backend/test/fixtures/`.
+Персистентности, очередей, скрейпинга и новых зависимостей CP-04 не добавляет.

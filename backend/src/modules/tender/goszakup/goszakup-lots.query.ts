@@ -1,0 +1,96 @@
+/**
+ * Raw shapes of the official Goszakup OWS v3 GraphQL registry.
+ * Contract: https://ows.goszakup.gov.kz/help/v3/schema/ (objects `Lots`, `TrdBuy`, `Subject`).
+ *
+ * These types exist only at the integration boundary: everything upstream returns is
+ * nullable for us because the registry omits optional fields, and nothing below may
+ * leak into the public API.
+ */
+
+export interface GoszakupTrdBuyDto {
+  /** Дата окончания приема заявок. */
+  endDate?: string | null;
+  /** Дата и время публикации. */
+  publishDate?: string | null;
+  numberAnno?: string | null;
+}
+
+export interface GoszakupSubjectDto {
+  bin?: string | null;
+  nameRu?: string | null;
+  nameKz?: string | null;
+}
+
+export interface GoszakupLotDto {
+  /** Идентификатор лота в реестре. */
+  id?: number | null;
+  lotNumber?: string | null;
+  /** Общая сумма лота. */
+  amount?: number | null;
+  nameRu?: string | null;
+  nameKz?: string | null;
+  descriptionRu?: string | null;
+  descriptionKz?: string | null;
+  customerBin?: string | null;
+  customerNameRu?: string | null;
+  customerNameKz?: string | null;
+  trdBuyId?: number | null;
+  trdBuyNumberAnno?: string | null;
+  /** Коды КАТО мест поставки. */
+  plnPointKatoList?: readonly string[] | null;
+  Customer?: GoszakupSubjectDto | null;
+  TrdBuy?: GoszakupTrdBuyDto | null;
+}
+
+export interface GoszakupGraphqlError {
+  message?: unknown;
+}
+
+export interface GoszakupGraphqlResponse {
+  data?: { Lots?: GoszakupLotDto[] | null } | null;
+  errors?: GoszakupGraphqlError[] | null;
+}
+
+/**
+ * `input LotsFiltersInput` — a deliberately narrow subset. Only filters that the
+ * bounded probe/adapter actually needs are declared; the rest of the input object
+ * stays untouched.
+ */
+export interface GoszakupLotsFilter {
+  nameDescriptionRu?: string;
+  refLotStatusId?: number[];
+  plnPointKatoList?: string;
+  amount?: number[];
+}
+
+/**
+ * The single bounded read path: `Query.Lots(filter, limit)` from the official v3 schema.
+ * Read-only by construction — the schema exposes no mutations and none are referenced here.
+ */
+export const GOSZAKUP_LOTS_QUERY = `query Lots($filter: LotsFiltersInput, $limit: Int) {
+  Lots(filter: $filter, limit: $limit) {
+    id
+    lotNumber
+    amount
+    nameRu
+    nameKz
+    descriptionRu
+    descriptionKz
+    customerBin
+    customerNameRu
+    customerNameKz
+    trdBuyId
+    trdBuyNumberAnno
+    plnPointKatoList
+    Customer {
+      bin
+      nameRu
+      nameKz
+    }
+    TrdBuy {
+      endDate
+      publishDate
+      numberAnno
+    }
+  }
+}`;

@@ -8,7 +8,7 @@ export class TenderController {
   constructor(private readonly service: TenderService) {}
 
   @Get()
-  list(@Query() query: Record<string, unknown>): Lot[] {
+  async list(@Query() query: Record<string, unknown>): Promise<Lot[]> {
     const filters: LotFilters = {};
     for (const key of ['q', 'region', 'district', 'maxAmount'] as const) {
       const value = query[key];
@@ -29,7 +29,7 @@ export class TenderController {
   }
 
   @Get(':id')
-  get(@Param('id') id: string): Lot {
+  get(@Param('id') id: string): Promise<Lot> {
     return this.service.get(id);
   }
 }
