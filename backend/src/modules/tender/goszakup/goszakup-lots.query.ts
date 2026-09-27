@@ -59,10 +59,8 @@ export interface GoszakupGraphqlResponse {
 export interface GoszakupLotsFilter {
   /** `id: [Int]` — documented official lookup of specific lots by their registry id. */
   id?: number[];
+  /** Search Russian lot name and description with morphology, per the official schema. */
   nameDescriptionRu?: string;
-  refLotStatusId?: number[];
-  plnPointKatoList?: string;
-  amount?: number[];
 }
 
 /**

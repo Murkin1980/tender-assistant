@@ -28,7 +28,7 @@ export class TenderService {
   }
 
   async list(filters: LotFilters): Promise<Lot[]> {
-    const lots = await this.fromSource(() => this.source.fetchLots());
+    const lots = await this.fromSource(() => this.source.fetchLots(filters));
     return lots.filter(
       (lot) =>
         (filters.maxAmount === undefined || lot.amount <= filters.maxAmount) &&

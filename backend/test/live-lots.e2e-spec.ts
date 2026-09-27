@@ -21,7 +21,10 @@ interface UpstreamRequest {
   method: string;
   authorization: string | null;
   query: string;
-  variables: { filter: { id?: number[] } | null; limit: number };
+  variables: {
+    filter: { id?: number[]; nameDescriptionRu?: string } | null;
+    limit: number;
+  };
 }
 
 let upstreamRequests: UpstreamRequest[] = [];
@@ -146,6 +149,27 @@ describe('Live lots API with TENDER_LOT_SOURCE=goszakup', () => {
 
     expect((response.body as Array<{ id: string }>).map((lot) => lot.id)).toEqual(ids);
     expect(upstreamRequests).toHaveLength(1);
+    if ('q' in query) {
+      expect(upstreamRequests[0]?.variables.filter).toEqual({ nameDescriptionRu: query.q });
+    } else {
+      expect(upstreamRequests[0]?.variables.filter).toBeNull();
+    }
+  });
+
+  it('pushes the documented text filter, keeps amount and location local, and still post-filters', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/api/v1/lots')
+      .query({ q: 'столы', maxAmount: '500000', region: 'Алматы' })
+      .expect(200);
+
+    expect((response.body as Array<{ id: string }>).map((lot) => lot.id)).toEqual([
+      'goszakup:900000001',
+    ]);
+    expect(upstreamRequests).toHaveLength(1);
+    expect(upstreamRequests[0]?.variables).toEqual({
+      filter: { nameDescriptionRu: 'столы' },
+      limit: DEFAULT_LIVE_LOTS_LIMIT,
+    });
   });
 
   it('opens a listed lot through /lots/:id with a documented bounded id lookup', async () => {

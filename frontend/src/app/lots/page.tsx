@@ -52,6 +52,9 @@ export default async function LotsPage({ searchParams }: { searchParams: Promise
         Профиль участия: мебель из ЛДСП, Алматы, до 500 000 KZT. Алатауский район — предпочтение;
         металлические шкафы нецелевые.
       </p>
+      <p>
+        <Link href="/lots?maxAmount=500000&region=Алматы">Наш профиль</Link>
+      </p>
       <form action="/lots" method="get" className="lot-filters">
         <label>
           Поиск

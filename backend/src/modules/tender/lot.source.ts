@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { Lot } from './lot';
+import type { Lot, LotFilters } from './lot';
 import { LOT_FIXTURES } from './lots.fixtures';
 
 /** `TENDER_LOT_SOURCE` values the backend accepts. */
@@ -50,11 +50,8 @@ export class LotSourceUnavailableError extends Error {
  * stay inside the source that produced them.
  */
 export interface LotSource {
-  /**
-   * @param limit Upper bound on the number of returned records. Omit it to ask for everything
-   *              the source holds; live sources keep their own documented bound.
-   */
-  fetchLots(limit?: number): Promise<Lot[]>;
+  /** Fetch one bounded source result set, allowing the source to push supported filters upstream. */
+  fetchLots(filters?: LotFilters): Promise<Lot[]>;
 
   /**
    * One lot by its normalized public id.
@@ -70,9 +67,10 @@ export const LOT_SOURCE = Symbol('LOT_SOURCE');
 /** Default source: the deterministic CP-03 fixtures served by `/lots`. */
 @Injectable()
 export class FixtureLotSource implements LotSource {
-  fetchLots(limit?: number): Promise<Lot[]> {
-    const lots = limit === undefined ? LOT_FIXTURES : LOT_FIXTURES.slice(0, Math.max(0, limit));
-    return Promise.resolve([...lots]);
+  fetchLots(filters?: LotFilters): Promise<Lot[]> {
+    // Filtering stays in TenderService so fixtures and live records share one implementation.
+    void filters;
+    return Promise.resolve([...LOT_FIXTURES]);
   }
 
   fetchLot(id: string): Promise<Lot | null> {
