@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import { useEffect, useState } from 'react';
 import type { ReactElement } from 'react';
 
@@ -79,6 +81,9 @@ export default function Home(): ReactElement {
       <section className="card" aria-labelledby="page-title">
         <p className="eyebrow">Среда разработки</p>
         <h1 id="page-title">Tender Assistant</h1>
+        <p>
+          <Link href="/lots">Перейти к тендерам</Link>
+        </p>
         <p className="intro">Основа для проверяемого процесса анализа тендеров.</p>
         <p className={`status status-${healthState}`} role="status" aria-live="polite">
           <span aria-hidden="true" className="status-dot" />

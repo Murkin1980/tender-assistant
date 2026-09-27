@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 
+import { TenderModule } from './modules/tender/tender.module';
+
 import configuration from './configuration';
 import { HealthModule } from './modules/health/health.module';
 
@@ -12,6 +14,7 @@ import { HealthModule } from './modules/health/health.module';
       load: [configuration],
     }),
     HealthModule,
+    TenderModule,
   ],
 })
 export class AppModule {}

@@ -93,3 +93,86 @@ h1 {
     padding: 32px 24px;
   }
 }
+
+.lots-shell {
+  width: min(100%, 1040px);
+  margin: auto;
+  padding: 24px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.lots-shell h1 {
+  margin: 24px 0;
+  font-size: clamp(1.8rem, 5vw, 2.8rem);
+  line-height: 1.2;
+}
+.lots-shell a {
+  color: #254f94;
+}
+.lot-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 16px;
+}
+.lot-filters label {
+  display: grid;
+  gap: 6px;
+  flex: 1 1 200px;
+}
+.lot-filters input,
+.lot-filters select,
+.lot-filters button {
+  font: inherit;
+  padding: 10px;
+  border: 1px solid #8290a8;
+  border-radius: 6px;
+  width: 100%;
+  min-width: 0;
+}
+.lot-filters button {
+  width: auto;
+  background: #254f94;
+  color: white;
+  cursor: pointer;
+}
+.lot-list {
+  padding: 0;
+  list-style: none;
+}
+.lot-card {
+  padding: 24px;
+  margin: 20px 0;
+  background: white;
+  border: 1px solid #dbe4f0;
+  border-radius: 12px;
+}
+.lot-card h2 {
+  margin-top: 0;
+}
+.lot-details {
+  display: grid;
+  grid-template-columns: minmax(100px, 1fr) minmax(0, 3fr);
+  gap: 12px;
+}
+.lot-details dt {
+  font-weight: bold;
+}
+.lot-details dd {
+  margin: 0;
+}
+@media (max-width: 520px) {
+  .lots-shell {
+    padding: 16px;
+  }
+  .lot-card {
+    padding: 16px;
+  }
+  .lot-details {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+  .lot-details dd {
+    margin-bottom: 12px;
+  }
+}
