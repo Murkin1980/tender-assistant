@@ -1,0 +1,67 @@
+import type { Lot } from './lot';
+
+// Synthetic records, not real procurement notices. URLs lead to the source registry.
+export const LOT_FIXTURES: readonly Lot[] = [
+  {
+    id: 'fixture-1',
+    source: 'Goszakup',
+    sourceUrl: 'https://goszakup.gov.kz/ru/search/lots',
+    title: 'Столы письменные из ЛДСП',
+    customer: 'Учебный центр (пример)',
+    amount: 420000,
+    region: 'Алматы',
+    district: 'Алатауский',
+    bidDeadline: '2026-10-15T12:00:00.000Z',
+    description:
+      'Мебель: 6 столов из ламинированной древесно-стружечной плиты (ЛДСП / LDSP), доставка и сборка.',
+  },
+  {
+    id: 'fixture-2',
+    source: 'Goszakup',
+    sourceUrl: 'https://goszakup.gov.kz/ru/search/lots',
+    title: 'Стеллажи из ЛДСП',
+    customer: 'Библиотека (пример)',
+    amount: 500000,
+    region: 'Алматы',
+    district: 'Бостандыкский',
+    bidDeadline: '2026-10-16T12:00:00.000Z',
+    description: 'Мебель для книг, ЛДСП, кромка ПВХ.',
+  },
+  {
+    id: 'fixture-3',
+    source: 'Goszakup',
+    sourceUrl: 'https://goszakup.gov.kz/ru/search/lots',
+    title: 'Комплект офисной мебели из ЛДСП',
+    customer: 'Администрация (пример)',
+    amount: 780000,
+    region: 'Алматы',
+    district: 'Алатауский',
+    bidDeadline: '2026-10-17T12:00:00.000Z',
+    description: 'Столы и тумбы из ЛДСП. Сумма выше начального целевого бюджета.',
+  },
+  {
+    id: 'fixture-4',
+    source: 'Goszakup',
+    sourceUrl: 'https://goszakup.gov.kz/ru/search/lots',
+    title: 'Тумбы из ЛДСП',
+    customer: 'Колледж (пример)',
+    amount: 280000,
+    region: 'Астана',
+    district: null,
+    bidDeadline: '2026-10-18T12:00:00.000Z',
+    description: 'Мебель из ЛДСП с доставкой в Астану.',
+  },
+  {
+    id: 'fixture-5',
+    source: 'Goszakup',
+    sourceUrl: 'https://goszakup.gov.kz/ru/search/lots',
+    title: 'Шкафы металлические',
+    customer: 'Спортивный центр (пример)',
+    amount: 350000,
+    region: 'Алматы',
+    district: 'Алатауский',
+    bidDeadline: '2026-10-19T12:00:00.000Z',
+    description:
+      'Сварные шкафы из стали. Не ЛДСП; нецелевой пример для текущего мебельного профиля.',
+  },
+];
