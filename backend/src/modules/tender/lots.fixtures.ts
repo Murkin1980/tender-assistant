@@ -1,7 +1,8 @@
 import type { Lot } from './lot';
 
 // Synthetic records, not real procurement notices. URLs lead to the source registry.
-// Together they cover all three CP-07 triage outcomes: MATCH, REVIEW and EXCLUDE.
+// Together they cover all three CP-07 triage outcomes: MATCH, REVIEW and EXCLUDE, and — per
+// CP-08 — the full range of procurement metadata: fully present, partially missing and absent.
 export const LOT_FIXTURES: readonly Lot[] = [
   {
     id: 'fixture-1',
@@ -15,6 +16,14 @@ export const LOT_FIXTURES: readonly Lot[] = [
     bidDeadline: '2026-10-15T12:00:00.000Z',
     description:
       'Мебель: 6 столов из ламинированной древесно-стружечной плиты (ЛДСП / LDSP), доставка и сборка.',
+    procurement: {
+      lotNumber: '1',
+      announcementNumber: 'DEMO-ANN-0001',
+      customerBin: '000000000001',
+      publishedAt: '2026-09-15T08:00:00.000Z',
+      procurementMethod: 'Запрос котировок (пример)',
+      officialStatus: 'Приём заявок (пример)',
+    },
   },
   {
     id: 'fixture-2',
@@ -27,6 +36,14 @@ export const LOT_FIXTURES: readonly Lot[] = [
     district: 'Бостандыкский',
     bidDeadline: '2026-10-16T12:00:00.000Z',
     description: 'Мебель для книг, ЛДСП, кромка ПВХ.',
+    procurement: {
+      lotNumber: '1',
+      announcementNumber: 'DEMO-ANN-0002',
+      customerBin: '000000000002',
+      publishedAt: '2026-09-16T08:00:00.000Z',
+      procurementMethod: 'Запрос предложений (пример)',
+      officialStatus: 'Приём заявок (пример)',
+    },
   },
   {
     id: 'fixture-3',
@@ -39,6 +56,14 @@ export const LOT_FIXTURES: readonly Lot[] = [
     district: 'Алатауский',
     bidDeadline: '2026-10-17T12:00:00.000Z',
     description: 'Столы и тумбы из ЛДСП. Сумма выше начального целевого бюджета.',
+    procurement: {
+      lotNumber: '2',
+      announcementNumber: 'DEMO-ANN-0003',
+      customerBin: '000000000003',
+      publishedAt: '2026-09-17T08:00:00.000Z',
+      procurementMethod: null,
+      officialStatus: null,
+    },
   },
   {
     id: 'fixture-4',
@@ -51,6 +76,14 @@ export const LOT_FIXTURES: readonly Lot[] = [
     district: null,
     bidDeadline: '2026-10-18T12:00:00.000Z',
     description: 'Мебель из ЛДСП с доставкой в Астану.',
+    procurement: {
+      lotNumber: null,
+      announcementNumber: 'DEMO-ANN-0004',
+      customerBin: '000000000004',
+      publishedAt: null,
+      procurementMethod: 'Единый источник (пример)',
+      officialStatus: 'Приём заявок (пример)',
+    },
   },
   {
     id: 'fixture-5',
@@ -64,6 +97,14 @@ export const LOT_FIXTURES: readonly Lot[] = [
     bidDeadline: '2026-10-19T12:00:00.000Z',
     description:
       'Сварные шкафы из стали. Не ЛДСП; нецелевой пример для текущего мебельного профиля.',
+    procurement: {
+      lotNumber: '1',
+      announcementNumber: 'DEMO-ANN-0005',
+      customerBin: '000000000005',
+      publishedAt: '2026-09-18T08:00:00.000Z',
+      procurementMethod: 'Запрос котировок (пример)',
+      officialStatus: 'Приём заявок (пример)',
+    },
   },
   {
     id: 'fixture-6',
@@ -76,5 +117,13 @@ export const LOT_FIXTURES: readonly Lot[] = [
     district: null,
     bidDeadline: '2026-10-20T12:00:00.000Z',
     description: 'Инвентарь и расходные материалы для учреждения. Состав уточняется приложением.',
+    procurement: {
+      lotNumber: null,
+      announcementNumber: null,
+      customerBin: null,
+      publishedAt: null,
+      procurementMethod: null,
+      officialStatus: null,
+    },
   },
 ];

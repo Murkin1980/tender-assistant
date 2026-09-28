@@ -81,6 +81,14 @@ const LIVE_LOT = {
   district: null,
   bidDeadline: '2026-10-20T12:00:00.000Z',
   description: 'Шесть столов из ЛДСП с доставкой. БИН заказчика: 000740000001',
+  procurement: {
+    lotNumber: '1',
+    announcementNumber: '0001-1',
+    customerBin: '000740000001',
+    publishedAt: '2026-09-20T08:00:00.000Z',
+    procurementMethod: 'Запрос котировок (пример)',
+    officialStatus: 'Приём заявок (пример)',
+  },
   // The registry never supplies a district, so Alatau can only stay a preference for live lots.
   assessment: {
     status: 'MATCH',
@@ -104,6 +112,14 @@ const LIVE_LOT_WITHOUT_OPTIONAL_FIELDS = {
   district: null,
   bidDeadline: '',
   description: '',
+  procurement: {
+    lotNumber: null,
+    announcementNumber: null,
+    customerBin: null,
+    publishedAt: null,
+    procurementMethod: null,
+    officialStatus: null,
+  },
   assessment: {
     status: 'REVIEW',
     reasons: ['Amount is within 500,000 KZT', 'Insufficient evidence for automatic match'],
@@ -143,6 +159,16 @@ describe('Live lots API with TENDER_LOT_SOURCE=goszakup', () => {
     expect(call?.variables.limit).toBe(DEFAULT_LIVE_LOTS_LIMIT);
     expect(call?.variables.filter).toBeNull();
     expect(call?.query).toContain('Lots(filter: $filter, limit: $limit)');
+    // CP-08 metadata rides along in the same single bounded query — no N+1 enrichment.
+    for (const field of [
+      'lotNumber',
+      'trdBuyNumberAnno',
+      'publishDate',
+      'RefTradeMethods',
+      'RefBuyStatus',
+    ]) {
+      expect(call?.query).toContain(field);
+    }
 
     // The registry token stays on the server.
     expect(response.text).not.toContain(TOKEN);

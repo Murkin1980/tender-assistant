@@ -16,6 +16,15 @@ const lot = (overrides: Partial<Lot> = {}): Lot => ({
   district: null,
   bidDeadline: '2026-10-15T12:00:00.000Z',
   description: 'Мебель для офиса.',
+  // CP-08 metadata is present but never read by the CP-07 evaluator.
+  procurement: {
+    lotNumber: null,
+    announcementNumber: null,
+    customerBin: null,
+    publishedAt: null,
+    procurementMethod: null,
+    officialStatus: null,
+  },
   ...overrides,
 });
 

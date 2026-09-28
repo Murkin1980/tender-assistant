@@ -1,11 +1,11 @@
-import type { Lot } from '../lot';
+import type { Lot, LotProcurement } from '../lot';
 import {
   GOSZAKUP_ID_PREFIX,
   GOSZAKUP_LOT_URL_BASE,
   GOSZAKUP_MAX_LOT_ID,
   GOSZAKUP_SOURCE,
 } from './goszakup.config';
-import type { GoszakupLotDto } from './goszakup-lots.query';
+import type { GoszakupLotDto, GoszakupRefLabelDto } from './goszakup-lots.query';
 
 /**
  * КАТО (Классификатор административно-территориальных объектов) — the first two digits of a
@@ -44,13 +44,26 @@ const pickText = (...values: Array<string | null | undefined>): string => {
   return '';
 };
 
-/** Upstream timestamps are strings; an unparsable or missing value stays empty, never guessed. */
-const toIsoDate = (value: string | null | undefined): string => {
+/** CP-08 metadata distinguishes "not provided" (`null`) from an actual value; `''` never leaks. */
+const orNull = (value: string): string | null => (value ? value : null);
+
+/**
+ * Upstream timestamps are strings; they stay ISO-8601 exactly once. An unparsable or missing
+ * value yields `null` so a caller can keep it missing instead of guessing a moment in time.
+ */
+const toIsoOrNull = (value: string | null | undefined): string | null => {
   const text = value?.trim();
-  if (!text) return '';
+  if (!text) return null;
   const date = new Date(text);
-  return Number.isNaN(date.getTime()) ? '' : date.toISOString();
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
 };
+
+/** The flat CP-03 `bidDeadline` keeps its canonical "missing is empty" convention. */
+const toIsoDate = (value: string | null | undefined): string => toIsoOrNull(value) ?? '';
+
+/** Reference-directory label (ru, otherwise kk); an absent directory entry stays `null`. */
+const refLabel = (ref: GoszakupRefLabelDto | null | undefined): string | null =>
+  orNull(pickText(ref?.nameRu, ref?.nameKz));
 
 const toRegion = (katoList: readonly string[] | null | undefined): string => {
   if (!katoList || katoList.length === 0) return '';
@@ -69,6 +82,34 @@ function buildDescription(lot: GoszakupLotDto, customerBin: string): string {
     customerBin ? `БИН заказчика: ${customerBin}` : '',
   ].filter((part) => part.length > 0);
   return parts.join('. ');
+}
+
+/**
+ * CP-08 decision metadata, mapped only from documented OWS v3 fields:
+ *
+ * - `lotNumber` ← `Lots.lotNumber` («Номер лота»);
+ * - `announcementNumber` ← `Lots.trdBuyNumberAnno`, falling back to `TrdBuy.numberAnno`
+ *   (both documented as «Номер объявления»);
+ * - `customerBin` ← `Lots.customerBin` / `Subject.bin` («БИН заказчика»);
+ * - `publishedAt` ← `TrdBuy.publishDate` («Дата и время публикации»);
+ * - `procurementMethod` ← `TrdBuy.RefTradeMethods.nameRu|nameKz` («Способ закупки» from the
+ *   official methods directory);
+ * - `officialStatus` ← `TrdBuy.RefBuyStatus.nameRu|nameKz` («Статус объявления» from the
+ *   official statuses directory).
+ *
+ * Numeric codes (`refTradeMethodsId`, `refBuyStatusId`, `refLotStatusId`) are deliberately not
+ * mapped: their value sets are not documented, so only the directory labels are exposed. A field
+ * the registry omits (or an unparsable date) stays `null` — never a placeholder.
+ */
+function buildProcurement(lot: GoszakupLotDto, customerBin: string): LotProcurement {
+  return {
+    lotNumber: orNull(pickText(lot.lotNumber)),
+    announcementNumber: orNull(pickText(lot.trdBuyNumberAnno, lot.TrdBuy?.numberAnno)),
+    customerBin: orNull(customerBin),
+    publishedAt: toIsoOrNull(lot.TrdBuy?.publishDate),
+    procurementMethod: refLabel(lot.TrdBuy?.RefTradeMethods),
+    officialStatus: refLabel(lot.TrdBuy?.RefBuyStatus),
+  };
 }
 
 /**
@@ -98,6 +139,7 @@ export function mapGoszakupLot(lot: GoszakupLotDto | null | undefined): Lot | nu
     district: null,
     bidDeadline: toIsoDate(lot.TrdBuy?.endDate),
     description: buildDescription(lot, customerBin),
+    procurement: buildProcurement(lot, customerBin),
   };
 }
 

@@ -97,6 +97,25 @@ export default async function LotPage({ params }: { params: Promise<{ id: string
             <dd>{lot.region}</dd>
             <dt>Район</dt>
             <dd>{lot.district ?? 'Не указан'}</dd>
+          </dl>
+          <h2>Данные закупки</h2>
+          <dl className="lot-details">
+            <dt>Номер лота</dt>
+            <dd>{lot.procurement.lotNumber ?? 'Не указано'}</dd>
+            <dt>Номер объявления</dt>
+            <dd>{lot.procurement.announcementNumber ?? 'Не указано'}</dd>
+            <dt>БИН заказчика</dt>
+            <dd>{lot.procurement.customerBin ?? 'Не указано'}</dd>
+            <dt>Опубликовано</dt>
+            <dd>
+              {lot.procurement.publishedAt ? (
+                <time dateTime={lot.procurement.publishedAt}>
+                  {deadlineLabel(lot.procurement.publishedAt)} (Алматы, UTC+5)
+                </time>
+              ) : (
+                'Не указано'
+              )}
+            </dd>
             <dt>Приём заявок до</dt>
             <dd>
               {lot.bidDeadline ? (
@@ -108,6 +127,10 @@ export default async function LotPage({ params }: { params: Promise<{ id: string
                 'Срок не указан'
               )}
             </dd>
+            <dt>Способ закупки</dt>
+            <dd>{lot.procurement.procurementMethod ?? 'Не указано'}</dd>
+            <dt>Официальный статус</dt>
+            <dd>{lot.procurement.officialStatus ?? 'Не указано'}</dd>
           </dl>
           <h2>Предмет закупки</h2>
           <p>{lot.description || 'Описание не указано.'}</p>

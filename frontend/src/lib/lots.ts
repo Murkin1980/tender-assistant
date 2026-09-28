@@ -12,6 +12,19 @@ export interface LotAssessment {
   reasons: string[];
 }
 
+/**
+ * Mirrors the backend CP-08 procurement metadata contract: source-backed fields whose missing
+ * values are `null` and never fabricated placeholders.
+ */
+export interface LotProcurement {
+  lotNumber: string | null;
+  announcementNumber: string | null;
+  customerBin: string | null;
+  publishedAt: string | null;
+  procurementMethod: string | null;
+  officialStatus: string | null;
+}
+
 /** Mirrors the backend public JSON contract; no fixture data is shipped to the frontend. */
 export interface Lot {
   id: string;
@@ -24,6 +37,7 @@ export interface Lot {
   district: string | null;
   bidDeadline: string;
   description: string;
+  procurement: LotProcurement;
   assessment: LotAssessment;
 }
 

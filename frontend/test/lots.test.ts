@@ -23,6 +23,14 @@ const lot: Lot = {
   district: 'Алатауский',
   bidDeadline: '2026-10-15T12:00:00.000Z',
   description: 'Ламинированная плита, доставка и сборка.',
+  procurement: {
+    lotNumber: '3',
+    announcementNumber: 'DEMO-ANN-0003',
+    customerBin: '000000000003',
+    publishedAt: '2026-09-10T08:00:00.000Z',
+    procurementMethod: 'Запрос котировок (пример)',
+    officialStatus: 'Приём заявок (пример)',
+  },
   assessment: {
     status: 'MATCH',
     reasons: [
@@ -62,6 +70,15 @@ const liveLot: Lot = {
   district: null,
   bidDeadline: '',
   description: '',
+  // The registry supplied none of the optional CP-08 metadata for this record.
+  procurement: {
+    lotNumber: null,
+    announcementNumber: null,
+    customerBin: null,
+    publishedAt: null,
+    procurementMethod: null,
+    officialStatus: null,
+  },
 };
 
 const fixtureSource: LotSourceStatus = { mode: 'fixture', live: false, label: 'Demo fixtures' };
@@ -258,6 +275,46 @@ describe('Lots server pages through the backend API', () => {
     expect(html).toContain('Источник данных не определён');
     expect(html).not.toContain('DEMO');
     expect(html).not.toContain('LIVE');
+  });
+
+  it('renders the assessment status above the source-backed Данные закупки section', async () => {
+    mockApi({ source: response(fixtureSource), detail: response(lot) });
+    const html = renderToStaticMarkup(await LotPage({ params: Promise.resolve({ id: lot.id }) }));
+
+    expect(html).toContain('Данные закупки');
+    for (const text of [
+      'Номер лота',
+      lot.procurement.lotNumber!,
+      'Номер объявления',
+      lot.procurement.announcementNumber!,
+      'БИН заказчика',
+      lot.procurement.customerBin!,
+      'Опубликовано',
+      // 2026-09-10T08:00Z rendered with the established Almaty (UTC+5) handling.
+      '13:00',
+      'Способ закупки',
+      lot.procurement.procurementMethod!,
+      'Официальный статус',
+      lot.procurement.officialStatus!,
+      lot.bidDeadline,
+    ])
+      expect(html).toContain(text);
+
+    // Assessment stays above the metadata so the operator reads the triage first.
+    expect(html.indexOf('data-status')).toBeLessThan(html.indexOf('Данные закупки'));
+    expect(html.indexOf('Данные закупки')).toBeLessThan(html.indexOf('Открыть источник'));
+  });
+
+  it('renders unavailable procurement metadata as Не указано instead of inventing it', async () => {
+    mockApi({ source: response(liveSource), detail: response(liveLot) });
+    const html = renderToStaticMarkup(
+      await LotPage({ params: Promise.resolve({ id: liveLot.id }) }),
+    );
+
+    // lotNumber, announcementNumber, customerBin, publishedAt, method and official status.
+    expect(html.match(/Не указано/g)).toHaveLength(6);
+    expect(html).toContain('Срок не указан');
+    expect(html).not.toContain('DEMO-ANN');
   });
 
   it('renders detail fields, source link and explicit fixture notice', async () => {
