@@ -1,6 +1,7 @@
 import type { Lot } from './lot';
 
 // Synthetic records, not real procurement notices. URLs lead to the source registry.
+// Together they cover all three CP-07 triage outcomes: MATCH, REVIEW and EXCLUDE.
 export const LOT_FIXTURES: readonly Lot[] = [
   {
     id: 'fixture-1',
@@ -63,5 +64,17 @@ export const LOT_FIXTURES: readonly Lot[] = [
     bidDeadline: '2026-10-19T12:00:00.000Z',
     description:
       'Сварные шкафы из стали. Не ЛДСП; нецелевой пример для текущего мебельного профиля.',
+  },
+  {
+    id: 'fixture-6',
+    source: 'Goszakup',
+    sourceUrl: 'https://goszakup.gov.kz/ru/search/lots',
+    title: 'Поставка хозяйственных товаров',
+    customer: 'Детский сад (пример)',
+    amount: 180000,
+    region: 'Алматы',
+    district: null,
+    bidDeadline: '2026-10-20T12:00:00.000Z',
+    description: 'Инвентарь и расходные материалы для учреждения. Состав уточняется приложением.',
   },
 ];

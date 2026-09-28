@@ -74,6 +74,17 @@ export default async function LotPage({ params }: { params: Promise<{ id: string
           <SourceNotice status={source} />
           <h1>{lot.title}</h1>
           <dl className="lot-details">
+            <dt>Статус</dt>
+            <dd>
+              <span className="triage-badge" data-status={lot.assessment.status}>
+                {lot.assessment.status}
+              </span>
+              <ul className="triage-reasons">
+                {lot.assessment.reasons.map((reason) => (
+                  <li key={reason}>{reason}</li>
+                ))}
+              </ul>
+            </dd>
             <dt>ID</dt>
             <dd>{lot.id}</dd>
             <dt>Источник</dt>

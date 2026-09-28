@@ -1,3 +1,17 @@
+/** Status values of the CP-07 assessment filter, as the select offers them. */
+export const lotAssessmentStatuses = ['MATCH', 'REVIEW', 'EXCLUDE'] as const;
+
+export type LotAssessmentStatus = (typeof lotAssessmentStatuses)[number];
+
+/**
+ * Mirrors the backend CP-07 assessment. The status and its reasons are produced server-side
+ * from the normalized lot; the frontend only displays them and never re-derives them.
+ */
+export interface LotAssessment {
+  status: LotAssessmentStatus;
+  reasons: string[];
+}
+
 /** Mirrors the backend public JSON contract; no fixture data is shipped to the frontend. */
 export interface Lot {
   id: string;
@@ -10,6 +24,7 @@ export interface Lot {
   district: string | null;
   bidDeadline: string;
   description: string;
+  assessment: LotAssessment;
 }
 
 export type SearchParams = Record<string, string | string[] | undefined>;
@@ -34,11 +49,20 @@ function isLotSourceStatus(value: unknown): value is LotSourceStatus {
   );
 }
 
+const isAssessmentStatus = (value: string): value is LotAssessmentStatus =>
+  (lotAssessmentStatuses as readonly string[]).includes(value);
+
 export function lotQuery(params: SearchParams): URLSearchParams {
   const query = new URLSearchParams();
   for (const key of ['q', 'maxAmount', 'region', 'district']) {
     const value = params[key];
     if (typeof value === 'string' && value.trim()) query.set(key, value.trim());
+  }
+  // An unknown status is dropped rather than forwarded as a filter the backend would reject.
+  const status = params.status;
+  if (typeof status === 'string') {
+    const candidate = status.trim().toUpperCase();
+    if (isAssessmentStatus(candidate)) query.set('status', candidate);
   }
   return query;
 }

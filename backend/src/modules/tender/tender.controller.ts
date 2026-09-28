@@ -1,5 +1,6 @@
 import { BadRequestException, Controller, Get, Param, Query } from '@nestjs/common';
-import type { Lot, LotFilters } from './lot';
+import type { AssessedLot, LotAssessmentStatus, LotFilters } from './lot';
+import { LOT_ASSESSMENT_STATUSES } from './lot-assessment';
 import type { LotSourceStatus } from './lot.source';
 import { TenderService } from './tender.service';
 
@@ -17,9 +18,9 @@ export class TenderController {
   }
 
   @Get()
-  async list(@Query() query: Record<string, unknown>): Promise<Lot[]> {
+  async list(@Query() query: Record<string, unknown>): Promise<AssessedLot[]> {
     const filters: LotFilters = {};
-    for (const key of ['q', 'region', 'district', 'maxAmount'] as const) {
+    for (const key of ['q', 'region', 'district', 'maxAmount', 'status'] as const) {
       const value = query[key];
       if (value === undefined) continue;
       if (typeof value !== 'string') throw new BadRequestException(`Invalid ${key}`);
@@ -30,6 +31,12 @@ export class TenderController {
           throw new BadRequestException('Invalid maxAmount');
         }
         filters.maxAmount = Number(text);
+      } else if (key === 'status') {
+        const status = text.toUpperCase() as LotAssessmentStatus;
+        if (!LOT_ASSESSMENT_STATUSES.includes(status)) {
+          throw new BadRequestException('Invalid status');
+        }
+        filters.status = status;
       } else {
         filters[key] = text;
       }
@@ -38,7 +45,7 @@ export class TenderController {
   }
 
   @Get(':id')
-  get(@Param('id') id: string): Promise<Lot> {
+  get(@Param('id') id: string): Promise<AssessedLot> {
     return this.service.get(id);
   }
 }

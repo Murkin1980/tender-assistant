@@ -23,7 +23,7 @@ describe('FixtureLotSource', () => {
 
     const lots = await source.fetchLots();
     lots.pop();
-    expect(LOT_FIXTURES).toHaveLength(5);
+    expect(LOT_FIXTURES).toHaveLength(6);
   });
 
   it('answers a detail lookup from the same fixtures and nothing else', async () => {

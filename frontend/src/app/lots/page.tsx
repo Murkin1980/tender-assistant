@@ -4,6 +4,7 @@ import {
   amountLabel,
   fetchLotSourceStatus,
   fetchLotsApi,
+  lotAssessmentStatuses,
   lotQuery,
   type Lot,
   type SearchParams,
@@ -55,6 +56,10 @@ export default async function LotsPage({ searchParams }: { searchParams: Promise
       <p>
         <Link href="/lots?maxAmount=500000&region=Алматы">Наш профиль</Link>
       </p>
+      <p className="triage-note">
+        Статус — автоматический предварительный отбор по простым правилам. Финальное решение
+        принимает оператор.
+      </p>
       <form action="/lots" method="get" className="lot-filters">
         <label>
           Поиск
@@ -87,6 +92,15 @@ export default async function LotsPage({ searchParams }: { searchParams: Promise
             placeholder="Все районы"
           />
         </label>
+        <label>
+          Статус
+          <select name="status" defaultValue={query.get('status') ?? ''}>
+            <option value="">Все статусы</option>
+            {lotAssessmentStatuses.map((status) => (
+              <option key={status}>{status}</option>
+            ))}
+          </select>
+        </label>
         <datalist id="districts">
           <option value="Алатауский" />
           <option value="Бостандыкский" />
@@ -110,7 +124,12 @@ export default async function LotsPage({ searchParams }: { searchParams: Promise
                 <h2>
                   <Link href={`/lots/${encodeURIComponent(lot.id)}`}>{lot.title}</Link>
                 </h2>
-                <strong>{amountLabel(lot.amount)}</strong>
+                <p className="lot-heading">
+                  <span className="triage-badge" data-status={lot.assessment.status}>
+                    {lot.assessment.status}
+                  </span>
+                  <strong>{amountLabel(lot.amount)}</strong>
+                </p>
                 <p>
                   {lot.customer} · {lot.region} · {lot.district ?? 'Район не указан'}
                 </p>

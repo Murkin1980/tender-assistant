@@ -81,6 +81,16 @@ const LIVE_LOT = {
   district: null,
   bidDeadline: '2026-10-20T12:00:00.000Z',
   description: 'Шесть столов из ЛДСП с доставкой. БИН заказчика: 000740000001',
+  // The registry never supplies a district, so Alatau can only stay a preference for live lots.
+  assessment: {
+    status: 'MATCH',
+    reasons: [
+      'Amount is within 500,000 KZT',
+      'Region is Almaty',
+      'LDSP signal found',
+      'Furniture signal found',
+    ],
+  },
 };
 
 const LIVE_LOT_WITHOUT_OPTIONAL_FIELDS = {
@@ -94,6 +104,10 @@ const LIVE_LOT_WITHOUT_OPTIONAL_FIELDS = {
   district: null,
   bidDeadline: '',
   description: '',
+  assessment: {
+    status: 'REVIEW',
+    reasons: ['Amount is within 500,000 KZT', 'Insufficient evidence for automatic match'],
+  },
 };
 
 describe('Live lots API with TENDER_LOT_SOURCE=goszakup', () => {
@@ -141,6 +155,10 @@ describe('Live lots API with TENDER_LOT_SOURCE=goszakup', () => {
     [{ district: 'Алатауский' }, []],
     [{ q: 'столы' }, ['goszakup:900000001']],
     [{ q: 'несуществующий' }, []],
+    [{ status: 'MATCH' }, ['goszakup:900000001']],
+    [{ status: 'REVIEW' }, ['goszakup:900000002']],
+    [{ status: 'EXCLUDE' }, []],
+    [{ status: 'MATCH', maxAmount: '500000', region: 'Алматы' }, ['goszakup:900000001']],
   ])('applies the existing filters %j to the live page', async (query, ids) => {
     const response = await request(app.getHttpServer())
       .get('/api/v1/lots')
@@ -170,6 +188,32 @@ describe('Live lots API with TENDER_LOT_SOURCE=goszakup', () => {
       filter: { nameDescriptionRu: 'столы' },
       limit: DEFAULT_LIVE_LOTS_LIMIT,
     });
+  });
+
+  it('filters live lots by assessment status locally, without touching the registry semantics', async () => {
+    const cases: ReadonlyArray<[string, string[]]> = [
+      ['MATCH', ['goszakup:900000001']],
+      ['REVIEW', ['goszakup:900000002']],
+      ['EXCLUDE', []],
+    ];
+
+    for (const [status, ids] of cases) {
+      upstreamRequests = [];
+      const response = await request(app.getHttpServer())
+        .get('/api/v1/lots')
+        .query({ status })
+        .expect(200);
+      const lots = response.body as Array<{ id: string; assessment: { status: string } }>;
+
+      expect(lots.map((lot) => lot.id)).toEqual(ids);
+      expect(lots.every((lot) => lot.assessment.status === status)).toBe(true);
+      // One bounded page read; the assessment status is local and never becomes a query filter.
+      expect(upstreamRequests).toHaveLength(1);
+      expect(upstreamRequests[0]?.variables).toEqual({
+        filter: null,
+        limit: DEFAULT_LIVE_LOTS_LIMIT,
+      });
+    }
   });
 
   it('opens a listed lot through /lots/:id with a documented bounded id lookup', async () => {
