@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import LotsPage from '../src/app/lots/page';
 import LotPage from '../src/app/lots/[id]/page';
 import LotNotFound from '../src/app/lots/[id]/not-found';
-import { lotQuery, type Lot, type LotSourceStatus } from '../src/lib/lots';
+import { lotQuery, timingLabel, type Lot, type LotSourceStatus } from '../src/lib/lots';
 
 vi.mock('next/navigation', () => ({
   notFound: () => {
@@ -40,6 +40,31 @@ const lot: Lot = {
       'Preferred district: Alatau',
     ],
   },
+  timing: {
+    status: 'OPEN_BY_DEADLINE',
+    deadline: '2026-10-15T12:00:00.000Z',
+    remainingMinutes: 3000,
+  },
+};
+
+/** CP-09: a valid deadline that has already passed. */
+const closedLot: Lot = {
+  ...lot,
+  id: 'api-closed',
+  bidDeadline: '2026-09-20T12:00:00.000Z',
+  timing: {
+    status: 'CLOSED_BY_DEADLINE',
+    deadline: '2026-09-20T12:00:00.000Z',
+    remainingMinutes: null,
+  },
+};
+
+/** CP-09: a deadline the source does not provide. */
+const unknownDeadlineLot: Lot = {
+  ...lot,
+  id: 'api-unknown-deadline',
+  bidDeadline: '',
+  timing: { status: 'DEADLINE_UNKNOWN', deadline: null, remainingMinutes: null },
 };
 
 const reviewLot: Lot = {
@@ -79,6 +104,7 @@ const liveLot: Lot = {
     procurementMethod: null,
     officialStatus: null,
   },
+  timing: { status: 'DEADLINE_UNKNOWN', deadline: null, remainingMinutes: null },
 };
 
 const fixtureSource: LotSourceStatus = { mode: 'fixture', live: false, label: 'Demo fixtures' };
@@ -173,6 +199,49 @@ describe('Lots server pages through the backend API', () => {
     expect(html).not.toContain('рекоменд');
   });
 
+  it('shows the deadline state of every listed lot without claiming an official status', async () => {
+    mockApi({ list: response([lot, closedLot, unknownDeadlineLot]) });
+    const html = renderToStaticMarkup(await LotsPage({ searchParams: Promise.resolve({}) }));
+
+    for (const status of ['OPEN_BY_DEADLINE', 'CLOSED_BY_DEADLINE', 'DEADLINE_UNKNOWN']) {
+      expect(html).toContain(`data-timing="${status}"`);
+    }
+    expect(html).toContain('Срок открыт · 2 дн. 2 ч.');
+    expect(html).toContain('Срок истёк');
+    expect(html).toContain('Срок не указан');
+    // Deadline arithmetic is never presented as the official status of the tender.
+    expect(html).not.toContain('Тендер открыт');
+    expect(html).not.toContain('Приём заявок открыт');
+    // Expired lots stay visible until the operator filters them out.
+    expect(html).toContain(closedLot.title);
+  });
+
+  it('offers the deadline filter and keeps the other query parameters', async () => {
+    mockApi({ list: response([lot]) });
+    const html = renderToStaticMarkup(
+      await LotsPage({
+        searchParams: Promise.resolve({
+          q: 'ЛДСП',
+          maxAmount: '500000',
+          region: 'Алматы',
+          district: 'Алатауский',
+          deadlineStatus: 'open_by_deadline',
+        }),
+      }),
+    );
+
+    const url = new URL(callsTo('/api/v1/lots')[0] as string);
+    expect(Object.fromEntries(url.searchParams)).toEqual({
+      q: 'ЛДСП',
+      maxAmount: '500000',
+      region: 'Алматы',
+      district: 'Алатауский',
+      deadlineStatus: 'OPEN_BY_DEADLINE',
+    });
+    for (const text of ['name="deadlineStatus"', 'Все сроки', 'selected="">Срок открыт'])
+      expect(html).toContain(text);
+  });
+
   it('applies the assessment status filter without dropping the other query parameters', async () => {
     mockApi({ list: response([lot]) });
     const html = renderToStaticMarkup(
@@ -213,21 +282,29 @@ describe('Lots server pages through the backend API', () => {
     expect(html).toContain('data-status="EXCLUDE"');
   });
 
-  it('offers a shareable current-profile preset that fills amount and Almaty only', async () => {
+  it('offers a shareable current-profile preset that also asks for an open deadline', async () => {
     mockApi({ source: response(liveSource), list: response([liveLot]) });
     const html = renderToStaticMarkup(await LotsPage({ searchParams: Promise.resolve({}) }));
 
     expect(html).toContain('Наш профиль');
-    expect(html).toContain('href="/lots?maxAmount=500000&amp;region=Алматы"');
+    expect(html).toContain(
+      'href="/lots?maxAmount=500000&amp;region=Алматы&amp;deadlineStatus=OPEN_BY_DEADLINE"',
+    );
 
     const presetHtml = renderToStaticMarkup(
       await LotsPage({
-        searchParams: Promise.resolve({ maxAmount: '500000', region: 'Алматы' }),
+        searchParams: Promise.resolve({
+          maxAmount: '500000',
+          region: 'Алматы',
+          deadlineStatus: 'OPEN_BY_DEADLINE',
+        }),
       }),
     );
+    // The active deadline filter stays visible in the form instead of being hidden.
     expect(presetHtml).toContain('name="maxAmount"');
     expect(presetHtml).toContain('value="500000"');
     expect(presetHtml).toContain('selected="">Алматы');
+    expect(presetHtml).toContain('selected="">Срок открыт');
     expect(presetHtml).not.toContain('value="ЛДСП"');
   });
 
@@ -305,6 +382,19 @@ describe('Lots server pages through the backend API', () => {
     expect(html.indexOf('Данные закупки')).toBeLessThan(html.indexOf('Открыть источник'));
   });
 
+  it('distinguishes the official status from the deadline-derived state on the detail page', async () => {
+    mockApi({ source: response(fixtureSource), detail: response(lot) });
+    const html = renderToStaticMarkup(await LotPage({ params: Promise.resolve({ id: lot.id }) }));
+
+    // The deadline state is shown next to the deadline and never replaces the official status.
+    expect(html).toContain('data-timing="OPEN_BY_DEADLINE"');
+    expect(html).toContain('Срок открыт · 2 дн. 2 ч.');
+    expect(html).toContain('Официальный статус');
+    expect(html).toContain(lot.procurement.officialStatus!);
+    expect(html).toContain('не является официальным статусом закупки');
+    expect(html).toContain('первоисточником остаётся запись источника');
+  });
+
   it('renders unavailable procurement metadata as Не указано instead of inventing it', async () => {
     mockApi({ source: response(liveSource), detail: response(liveLot) });
     const html = renderToStaticMarkup(
@@ -355,6 +445,7 @@ describe('Lots server pages through the backend API', () => {
     expect(html).toContain('LIVE');
     expect(html).toContain('goszakup');
     expect(html).toContain(liveLot.sourceUrl);
+    expect(html).toContain('data-timing="DEADLINE_UNKNOWN"');
     expect(html).toContain('Срок не указан');
     expect(html).toContain('Описание не указано.');
     expect(html).not.toContain('вымышленный пример');
@@ -456,5 +547,63 @@ describe('Lots server pages through the backend API', () => {
     const unknown = lotQuery({ status: 'unknown', q: 'стол' });
     expect(unknown.get('status')).toBeNull();
     expect(unknown.get('q')).toBe('стол');
+  });
+
+  it('forwards a known deadline state and drops an unknown one', () => {
+    expect(lotQuery({ deadlineStatus: ' closed_by_deadline ', other: 'ignored' }).toString()).toBe(
+      'deadlineStatus=CLOSED_BY_DEADLINE',
+    );
+    const unknown = lotQuery({ deadlineStatus: 'open', q: 'стол' });
+    expect(unknown.get('deadlineStatus')).toBeNull();
+    expect(unknown.get('q')).toBe('стол');
+  });
+});
+
+describe('timingLabel', () => {
+  it('shows the remaining duration of a future deadline', () => {
+    expect(
+      timingLabel({
+        status: 'OPEN_BY_DEADLINE',
+        deadline: '2026-10-15T12:00:00.000Z',
+        remainingMinutes: 3000,
+      }),
+    ).toBe('Срок открыт · 2 дн. 2 ч.');
+    expect(
+      timingLabel({
+        status: 'OPEN_BY_DEADLINE',
+        deadline: '2026-10-15T12:00:00.000Z',
+        remainingMinutes: 125,
+      }),
+    ).toBe('Срок открыт · 2 ч. 5 мин.');
+    expect(
+      timingLabel({
+        status: 'OPEN_BY_DEADLINE',
+        deadline: '2026-10-15T12:00:00.000Z',
+        remainingMinutes: 45,
+      }),
+    ).toBe('Срок открыт · 45 мин.');
+  });
+
+  it('never claims that a tender or an application process is open', () => {
+    const label = timingLabel({
+      status: 'OPEN_BY_DEADLINE',
+      deadline: '2026-10-15T12:00:00.000Z',
+      remainingMinutes: 60,
+    });
+    expect(label).not.toContain('Тендер открыт');
+    expect(label).not.toContain('Приём заявок открыт');
+  });
+
+  it('states an expired and an unknown deadline without a duration', () => {
+    expect(
+      timingLabel({
+        status: 'CLOSED_BY_DEADLINE',
+        deadline: '2026-09-20T12:00:00.000Z',
+        remainingMinutes: null,
+      }),
+    ).toBe('Срок истёк');
+    expect(
+      timingLabel({ status: 'DEADLINE_UNKNOWN', deadline: null, remainingMinutes: null }),
+    ).toBe('Срок не указан');
   });
 });

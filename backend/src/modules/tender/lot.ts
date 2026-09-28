@@ -50,9 +50,29 @@ export interface LotAssessment {
   reasons: string[];
 }
 
-/** Public lot response: the normalized lot plus its server-derived assessment. */
+/**
+ * CP-09 deadline-derived state of one lot. The names are intentionally explicit: a deadline in
+ * the future never means the tender is officially open, so this is never called `OPEN`.
+ */
+export type LotTimingStatus = 'OPEN_BY_DEADLINE' | 'CLOSED_BY_DEADLINE' | 'DEADLINE_UNKNOWN';
+
+/**
+ * Additive CP-09 timing contract. It is derived from the normalized `bidDeadline` only — never
+ * from an official status — and carries no human-readable phrase of its own.
+ */
+export interface LotTiming {
+  status: LotTimingStatus;
+  /** The valid normalized ISO-8601 deadline, otherwise `null`. */
+  deadline: string | null;
+  /** Whole minutes left, and only for `OPEN_BY_DEADLINE`; closed and unknown stay `null`. */
+  remainingMinutes: number | null;
+}
+
+/** Public lot response: the normalized lot plus its server-derived assessment and timing. */
 export interface AssessedLot extends Lot {
   assessment: LotAssessment;
+  /** CP-09 deadline state, derived next to the assessment for every lot of every source. */
+  timing: LotTiming;
 }
 
 export interface LotFilters {
@@ -62,4 +82,6 @@ export interface LotFilters {
   district?: string;
   /** Public-only filter: applied after assessment, never pushed to a source. */
   status?: LotAssessmentStatus;
+  /** Public-only filter: applied after timing derivation, never pushed to a source. */
+  deadlineStatus?: LotTimingStatus;
 }

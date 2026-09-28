@@ -3,6 +3,9 @@ import type { Lot } from './lot';
 // Synthetic records, not real procurement notices. URLs lead to the source registry.
 // Together they cover all three CP-07 triage outcomes: MATCH, REVIEW and EXCLUDE, and — per
 // CP-08 — the full range of procurement metadata: fully present, partially missing and absent.
+// Per CP-09 they also cover every deadline state: a valid future deadline (fixture-1, -2, -5),
+// a valid past deadline (fixture-3, -4) and a missing deadline (fixture-6). The expired records
+// stay in the default list on purpose — a past deadline is never hidden by default.
 export const LOT_FIXTURES: readonly Lot[] = [
   {
     id: 'fixture-1',
@@ -54,7 +57,7 @@ export const LOT_FIXTURES: readonly Lot[] = [
     amount: 780000,
     region: 'Алматы',
     district: 'Алатауский',
-    bidDeadline: '2026-10-17T12:00:00.000Z',
+    bidDeadline: '2026-09-20T12:00:00.000Z',
     description: 'Столы и тумбы из ЛДСП. Сумма выше начального целевого бюджета.',
     procurement: {
       lotNumber: '2',
@@ -74,7 +77,7 @@ export const LOT_FIXTURES: readonly Lot[] = [
     amount: 280000,
     region: 'Астана',
     district: null,
-    bidDeadline: '2026-10-18T12:00:00.000Z',
+    bidDeadline: '2026-09-21T12:00:00.000Z',
     description: 'Мебель из ЛДСП с доставкой в Астану.',
     procurement: {
       lotNumber: null,
@@ -115,7 +118,7 @@ export const LOT_FIXTURES: readonly Lot[] = [
     amount: 180000,
     region: 'Алматы',
     district: null,
-    bidDeadline: '2026-10-20T12:00:00.000Z',
+    bidDeadline: '',
     description: 'Инвентарь и расходные материалы для учреждения. Состав уточняется приложением.',
     procurement: {
       lotNumber: null,

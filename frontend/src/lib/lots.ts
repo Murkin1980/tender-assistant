@@ -3,6 +3,15 @@ export const lotAssessmentStatuses = ['MATCH', 'REVIEW', 'EXCLUDE'] as const;
 
 export type LotAssessmentStatus = (typeof lotAssessmentStatuses)[number];
 
+/** Status values of the CP-09 deadline filter, in the order the select offers them. */
+export const lotTimingStatuses = [
+  'OPEN_BY_DEADLINE',
+  'DEADLINE_UNKNOWN',
+  'CLOSED_BY_DEADLINE',
+] as const;
+
+export type LotTimingStatus = (typeof lotTimingStatuses)[number];
+
 /**
  * Mirrors the backend CP-07 assessment. The status and its reasons are produced server-side
  * from the normalized lot; the frontend only displays them and never re-derives them.
@@ -10,6 +19,17 @@ export type LotAssessmentStatus = (typeof lotAssessmentStatuses)[number];
 export interface LotAssessment {
   status: LotAssessmentStatus;
   reasons: string[];
+}
+
+/**
+ * Mirrors the backend CP-09 timing contract. The deadline state is derived server-side from
+ * the normalized `bidDeadline` only: it is a separate fact from the official procurement
+ * status, and the frontend never recomputes it.
+ */
+export interface LotTiming {
+  status: LotTimingStatus;
+  deadline: string | null;
+  remainingMinutes: number | null;
 }
 
 /**
@@ -39,6 +59,7 @@ export interface Lot {
   description: string;
   procurement: LotProcurement;
   assessment: LotAssessment;
+  timing: LotTiming;
 }
 
 export type SearchParams = Record<string, string | string[] | undefined>;
@@ -66,6 +87,9 @@ function isLotSourceStatus(value: unknown): value is LotSourceStatus {
 const isAssessmentStatus = (value: string): value is LotAssessmentStatus =>
   (lotAssessmentStatuses as readonly string[]).includes(value);
 
+const isTimingStatus = (value: string): value is LotTimingStatus =>
+  (lotTimingStatuses as readonly string[]).includes(value);
+
 export function lotQuery(params: SearchParams): URLSearchParams {
   const query = new URLSearchParams();
   for (const key of ['q', 'maxAmount', 'region', 'district']) {
@@ -77,6 +101,12 @@ export function lotQuery(params: SearchParams): URLSearchParams {
   if (typeof status === 'string') {
     const candidate = status.trim().toUpperCase();
     if (isAssessmentStatus(candidate)) query.set('status', candidate);
+  }
+  // An unknown deadline state is dropped the same way.
+  const deadlineStatus = params.deadlineStatus;
+  if (typeof deadlineStatus === 'string') {
+    const candidate = deadlineStatus.trim().toUpperCase();
+    if (isTimingStatus(candidate)) query.set('deadlineStatus', candidate);
   }
   return query;
 }
@@ -117,3 +147,36 @@ export const deadlineLabel = (deadline: string): string =>
     timeStyle: 'short',
     timeZone: 'Asia/Almaty',
   }).format(new Date(deadline));
+
+const MINUTES_PER_HOUR = 60;
+const MINUTES_PER_DAY = 24 * MINUTES_PER_HOUR;
+
+/**
+ * Concise remaining duration of a future deadline, in whole minutes.
+ *
+ * The value is server-derived and rendered once: there is no live countdown and no client-side
+ * interval, so a page shows the duration that was valid when the server answered.
+ */
+function remainingLabel(remainingMinutes: number): string {
+  const days = Math.floor(remainingMinutes / MINUTES_PER_DAY);
+  const hours = Math.floor((remainingMinutes % MINUTES_PER_DAY) / MINUTES_PER_HOUR);
+  const minutes = remainingMinutes % MINUTES_PER_HOUR;
+  if (days > 0) return `${days} дн. ${hours} ч.`;
+  if (hours > 0) return `${hours} ч. ${minutes} мин.`;
+  return `${minutes} мин.`;
+}
+
+/**
+ * Compact time state of one lot.
+ *
+ * The wording deliberately never claims that the tender or the application process is open:
+ * only the deadline is in the future, which is not the official procurement status.
+ */
+export function timingLabel(timing: LotTiming): string {
+  if (timing.status === 'OPEN_BY_DEADLINE') {
+    return timing.remainingMinutes === null
+      ? 'Срок открыт'
+      : `Срок открыт · ${remainingLabel(timing.remainingMinutes)}`;
+  }
+  return timing.status === 'CLOSED_BY_DEADLINE' ? 'Срок истёк' : 'Срок не указан';
+}
