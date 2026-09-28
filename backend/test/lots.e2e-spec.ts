@@ -40,6 +40,14 @@ describe('Lots API', () => {
       district: 'Алатауский',
       bidDeadline: '2026-10-15T12:00:00.000Z',
       description: expect.any(String),
+      procurement: {
+        lotNumber: '1',
+        announcementNumber: 'DEMO-ANN-0001',
+        customerBin: '000000000001',
+        publishedAt: '2026-09-15T08:00:00.000Z',
+        procurementMethod: 'Запрос котировок (пример)',
+        officialStatus: 'Приём заявок (пример)',
+      },
       assessment: {
         status: 'MATCH',
         reasons: [
@@ -53,6 +61,43 @@ describe('Lots API', () => {
     });
     const detail = await request(app.getHttpServer()).get(`/api/v1/lots/${lot.id}`).expect(200);
     expect(detail.body).toEqual(lot);
+  });
+
+  it('serves the additive procurement metadata on list and detail, never fabricated', async () => {
+    const list = await request(app.getHttpServer()).get('/api/v1/lots').expect(200);
+    const lots = list.body as Array<AssessedLot & { procurement: Record<string, unknown> }>;
+
+    for (const lot of lots) {
+      expect(Object.keys(lot.procurement).sort()).toEqual([
+        'announcementNumber',
+        'customerBin',
+        'lotNumber',
+        'officialStatus',
+        'procurementMethod',
+        'publishedAt',
+      ]);
+      for (const value of Object.values(lot.procurement)) {
+        expect(value === null || typeof value === 'string').toBe(true);
+      }
+    }
+
+    // Fixture parity: fully present, partially missing and fully missing metadata are all served
+    // through the same contract without placeholders.
+    expect(lots.find((lot) => lot.id === 'fixture-1')?.procurement.lotNumber).toBe('1');
+    expect(lots.find((lot) => lot.id === 'fixture-3')?.procurement).toMatchObject({
+      procurementMethod: null,
+      officialStatus: null,
+    });
+    expect(
+      Object.values(lots.find((lot) => lot.id === 'fixture-6')?.procurement ?? {}).every(
+        (value) => value === null,
+      ),
+    ).toBe(true);
+
+    const detail = await request(app.getHttpServer()).get('/api/v1/lots/fixture-6').expect(200);
+    expect((detail.body as AssessedLot & { procurement: unknown }).procurement).toEqual(
+      lots.find((lot) => lot.id === 'fixture-6')?.procurement,
+    );
   });
 
   it('assesses every listed lot and keeps excluded lots visible', async () => {

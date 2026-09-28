@@ -30,6 +30,8 @@ export const FULL_LOT: GoszakupLotDto = {
     endDate: '2026-10-20T12:00:00Z',
     publishDate: '2026-09-20T08:00:00Z',
     numberAnno: '0001-1',
+    RefTradeMethods: { nameRu: 'Запрос котировок (пример)', nameKz: 'Ұсыныстар сұрау (мысал)' },
+    RefBuyStatus: { nameRu: 'Приём заявок (пример)', nameKz: 'Өтінімдер қабылдау (мысал)' },
   },
 };
 

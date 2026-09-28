@@ -20,6 +20,14 @@ describe('mapGoszakupLot', () => {
       district: null,
       bidDeadline: '2026-10-20T12:00:00.000Z',
       description: 'Шесть столов из ЛДСП с доставкой. БИН заказчика: 000740000001',
+      procurement: {
+        lotNumber: '1',
+        announcementNumber: '0001-1',
+        customerBin: '000740000001',
+        publishedAt: '2026-09-20T08:00:00.000Z',
+        procurementMethod: 'Запрос котировок (пример)',
+        officialStatus: 'Приём заявок (пример)',
+      },
     });
   });
 
@@ -53,7 +61,77 @@ describe('mapGoszakupLot', () => {
       district: null,
       bidDeadline: '',
       description: '',
+      procurement: {
+        lotNumber: null,
+        announcementNumber: null,
+        customerBin: null,
+        publishedAt: null,
+        procurementMethod: null,
+        officialStatus: null,
+      },
     });
+  });
+
+  it('maps lot number and announcement number from their documented fields', () => {
+    expect(mapGoszakupLot({ id: 1, amount: 1, lotNumber: ' 3 ' })?.procurement.lotNumber).toBe('3');
+    // Both documented «Номер объявления» fields; the denormalized lot copy wins.
+    expect(
+      mapGoszakupLot({ id: 1, amount: 1, trdBuyNumberAnno: '0002-1' })?.procurement
+        .announcementNumber,
+    ).toBe('0002-1');
+    expect(
+      mapGoszakupLot({ id: 1, amount: 1, trdBuyNumberAnno: ' ', TrdBuy: { numberAnno: '0002-2' } })
+        ?.procurement.announcementNumber,
+    ).toBe('0002-2');
+    expect(mapGoszakupLot({ id: 1, amount: 1 })?.procurement.announcementNumber).toBeNull();
+  });
+
+  it('exposes the customer BIN as dedicated structured metadata', () => {
+    expect(
+      mapGoszakupLot({ id: 1, amount: 1, customerBin: '000740000010' })?.procurement.customerBin,
+    ).toBe('000740000010');
+    expect(
+      mapGoszakupLot({ id: 1, amount: 1, Customer: { bin: '000740000011' } })?.procurement
+        .customerBin,
+    ).toBe('000740000011');
+    expect(mapGoszakupLot({ id: 1, amount: 1 })?.procurement.customerBin).toBeNull();
+  });
+
+  it('maps the publication timestamp and never fabricates an invalid one', () => {
+    const publishedAt = (publishDate?: string | null): string | null =>
+      mapGoszakupLot({ id: 1, amount: 1, TrdBuy: { publishDate } })?.procurement.publishedAt ??
+      null;
+
+    expect(publishedAt('2026-09-20T08:00:00Z')).toBe('2026-09-20T08:00:00.000Z');
+    expect(publishedAt('2026-09-20T13:00:00+05:00')).toBe('2026-09-20T08:00:00.000Z');
+    // An unparsable or missing date stays missing instead of becoming a timestamp.
+    expect(publishedAt('not-a-date')).toBeNull();
+    expect(publishedAt(undefined)).toBeNull();
+    expect(publishedAt('')).toBeNull();
+  });
+
+  it('maps the procurement method and official status from their reference directories', () => {
+    // id and amount are usable, so this record always normalizes into a lot.
+    const labels = (TrdBuy: GoszakupLotDto['TrdBuy']): Lot['procurement'] =>
+      (mapGoszakupLot({ id: 1, amount: 1, TrdBuy }) as Lot).procurement;
+
+    expect(
+      labels({
+        RefTradeMethods: { nameRu: 'Запрос котировок', nameKz: 'Ұсыныстар сұрау' },
+        RefBuyStatus: { nameRu: 'Приём заявок', nameKz: 'Өтінімдер қабылдау' },
+      }),
+    ).toMatchObject({ procurementMethod: 'Запрос котировок', officialStatus: 'Приём заявок' });
+    // State-language fallback mirrors title/customer handling.
+    expect(
+      labels({ RefTradeMethods: { nameRu: null, nameKz: 'Ұсыныстар сұрау' }, RefBuyStatus: {} })
+        .procurementMethod,
+    ).toBe('Ұсыныстар сұрау');
+    // Raw directory codes are never mapped; a missing entry stays null, not a placeholder.
+    expect(labels({ RefTradeMethods: { nameRu: '  ' }, RefBuyStatus: null })).toMatchObject({
+      procurementMethod: null,
+      officialStatus: null,
+    });
+    expect(labels(undefined)).toMatchObject({ procurementMethod: null, officialStatus: null });
   });
 
   it('resolves КАТО delivery codes to region names and keeps unknown codes verbatim', () => {

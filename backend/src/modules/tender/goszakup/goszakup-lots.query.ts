@@ -1,11 +1,21 @@
 /**
  * Raw shapes of the official Goszakup OWS v3 GraphQL registry.
- * Contract: https://ows.goszakup.gov.kz/help/v3/schema/ (objects `Lots`, `TrdBuy`, `Subject`).
+ * Contract: https://ows.goszakup.gov.kz/help/v3/schema/ (objects `Lots`, `TrdBuy`, `Subject`,
+ * `RefTradeMethods`, `RefBuyStatus`).
  *
  * These types exist only at the integration boundary: everything upstream returns is
  * nullable for us because the registry omits optional fields, and nothing below may
  * leak into the public API.
  */
+
+/**
+ * Human-readable label of an official OWS v3 reference directory (`nameRu`/`nameKz`).
+ * Only these documented labels may reach the public contract — raw directory codes never do.
+ */
+export interface GoszakupRefLabelDto {
+  nameRu?: string | null;
+  nameKz?: string | null;
+}
 
 export interface GoszakupTrdBuyDto {
   /** Дата окончания приема заявок. */
@@ -13,6 +23,10 @@ export interface GoszakupTrdBuyDto {
   /** Дата и время публикации. */
   publishDate?: string | null;
   numberAnno?: string | null;
+  /** Способ закупки — справочник методов закупок. */
+  RefTradeMethods?: GoszakupRefLabelDto | null;
+  /** Статус объявления — справочник статусов. */
+  RefBuyStatus?: GoszakupRefLabelDto | null;
 }
 
 export interface GoszakupSubjectDto {
@@ -91,6 +105,14 @@ export const GOSZAKUP_LOTS_QUERY = `query Lots($filter: LotsFiltersInput, $limit
       endDate
       publishDate
       numberAnno
+      RefTradeMethods {
+        nameRu
+        nameKz
+      }
+      RefBuyStatus {
+        nameRu
+        nameKz
+      }
     }
   }
 }`;
