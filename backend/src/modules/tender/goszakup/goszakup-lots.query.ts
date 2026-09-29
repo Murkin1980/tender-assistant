@@ -17,6 +17,21 @@ export interface GoszakupRefLabelDto {
   nameKz?: string | null;
 }
 
+/**
+ * Raw shape of official Goszakup file objects (`FileLots` and `FileTrdBuy`).
+ * Contract: https://ows.goszakup.gov.kz/help/v3/schema/ (objects `FileLots`, `FileTrdBuy`).
+ */
+export interface GoszakupFileDto {
+  id?: number | null;
+  filePath?: string | null;
+  originalName?: string | null;
+  nameRu?: string | null;
+  nameKz?: string | null;
+  objectId?: number | number[] | null;
+  indexDate?: string | null;
+  systemId?: number | null;
+}
+
 export interface GoszakupTrdBuyDto {
   /** Дата окончания приема заявок. */
   endDate?: string | null;
@@ -27,6 +42,8 @@ export interface GoszakupTrdBuyDto {
   RefTradeMethods?: GoszakupRefLabelDto | null;
   /** Статус объявления — справочник статусов. */
   RefBuyStatus?: GoszakupRefLabelDto | null;
+  /** Документ закупки (Files: [FileTrdBuy]). */
+  Files?: GoszakupFileDto[] | null;
 }
 
 export interface GoszakupSubjectDto {
@@ -54,6 +71,8 @@ export interface GoszakupLotDto {
   plnPointKatoList?: readonly string[] | null;
   Customer?: GoszakupSubjectDto | null;
   TrdBuy?: GoszakupTrdBuyDto | null;
+  /** Документ лота (Files: [FileLots]). */
+  Files?: GoszakupFileDto[] | null;
 }
 
 export interface GoszakupGraphqlError {
@@ -113,6 +132,61 @@ export const GOSZAKUP_LOTS_QUERY = `query Lots($filter: LotsFiltersInput, $limit
         nameRu
         nameKz
       }
+    }
+  }
+}`;
+
+/**
+ * Bounded detail read path: `Query.Lots(filter: { id: [...] }, limit: 1)` with official
+ * procurement documents (`Files` on `Lots` and `Files` on `TrdBuy`).
+ * Detail-only: the list query (`GOSZAKUP_LOTS_QUERY`) never asks for documents.
+ */
+export const GOSZAKUP_LOT_DETAIL_QUERY = `query LotDetail($filter: LotsFiltersInput, $limit: Int) {
+  Lots(filter: $filter, limit: $limit) {
+    id
+    lotNumber
+    amount
+    nameRu
+    nameKz
+    descriptionRu
+    descriptionKz
+    customerBin
+    customerNameRu
+    customerNameKz
+    trdBuyId
+    trdBuyNumberAnno
+    plnPointKatoList
+    Customer {
+      bin
+      nameRu
+      nameKz
+    }
+    TrdBuy {
+      endDate
+      publishDate
+      numberAnno
+      RefTradeMethods {
+        nameRu
+        nameKz
+      }
+      RefBuyStatus {
+        nameRu
+        nameKz
+      }
+      Files {
+        id
+        filePath
+        originalName
+        nameRu
+        nameKz
+      }
+    }
+    Files {
+      id
+      filePath
+      originalName
+      nameRu
+      nameKz
     }
   }
 }`;

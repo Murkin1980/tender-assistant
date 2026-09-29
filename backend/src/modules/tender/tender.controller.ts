@@ -1,5 +1,11 @@
 import { BadRequestException, Controller, Get, Param, Query } from '@nestjs/common';
-import type { AssessedLot, LotAssessmentStatus, LotFilters, LotTimingStatus } from './lot';
+import type {
+  AssessedLot,
+  AssessedLotDetail,
+  LotAssessmentStatus,
+  LotFilters,
+  LotTimingStatus,
+} from './lot';
 import { LOT_ACTION_STATUSES, type LotActionStatus } from './lot-actionability';
 import { LOT_ASSESSMENT_STATUSES } from './lot-assessment';
 import { LOT_TIMING_STATUSES } from './lot-timing';
@@ -67,7 +73,7 @@ export class TenderController {
   }
 
   @Get(':id')
-  get(@Param('id') id: string): Promise<AssessedLot> {
+  get(@Param('id') id: string): Promise<AssessedLotDetail> {
     return this.service.get(id);
   }
 }

@@ -48,6 +48,18 @@ export interface LotProcurement {
   officialStatus: string | null;
 }
 
+/**
+ * CP-11 detail-only official procurement document contract.
+ */
+export interface LotDocument {
+  id: string;
+  name: string;
+  type: string | null;
+  mimeType: string | null;
+  sizeBytes: number | null;
+  sourceUrl: string;
+}
+
 /** Mirrors the backend public JSON contract; no fixture data is shipped to the frontend. */
 export interface Lot {
   id: string;
@@ -64,6 +76,7 @@ export interface Lot {
   assessment: LotAssessment;
   timing: LotTiming;
   actionability: { status: LotActionStatus };
+  documents?: LotDocument[];
 }
 
 export type SearchParams = Record<string, string | string[] | undefined>;

@@ -88,6 +88,7 @@ export class GoszakupClient {
   async fetchLots(options: {
     limit: number;
     filter?: GoszakupLotsFilter;
+    query?: string;
   }): Promise<GoszakupLotDto[]> {
     // The token is validated per call, not at construction: the backend must boot and keep serving
     // fixture lots when no OWS token is configured.
@@ -109,7 +110,7 @@ export class GoszakupClient {
     }
 
     const body = JSON.stringify({
-      query: GOSZAKUP_LOTS_QUERY,
+      query: options.query ?? GOSZAKUP_LOTS_QUERY,
       variables: { filter: options.filter ?? null, limit },
     });
 

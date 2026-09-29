@@ -281,3 +281,21 @@ h1 {
 .source-notice[data-source='unknown'] {
   border-left-color: #8290a8;
 }
+
+.documents-list {
+  margin: 12px 0 24px;
+  padding-left: 20px;
+}
+.document-item {
+  margin-bottom: 8px;
+}
+.document-name {
+  font-weight: 600;
+}
+.document-meta {
+  color: #52627c;
+  font-size: 0.9em;
+}
+.document-link {
+  color: #254f94;
+}

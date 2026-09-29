@@ -3,7 +3,11 @@ import request from 'supertest';
 import { createApp } from '../src/app';
 import { DEFAULT_LIVE_LOTS_LIMIT } from '../src/modules/tender/goszakup/goszakup.config';
 import { LOT_FIXTURES } from '../src/modules/tender/lots.fixtures';
-import type { GoszakupLotDto } from '../src/modules/tender/goszakup/goszakup-lots.query';
+import {
+  GOSZAKUP_LOTS_QUERY,
+  GOSZAKUP_LOT_DETAIL_QUERY,
+  type GoszakupLotDto,
+} from '../src/modules/tender/goszakup/goszakup-lots.query';
 import { FULL_LOT, MINIMAL_LOT, PAST_DEADLINE_LOT } from './fixtures/goszakup-lots.fixture';
 
 /**
@@ -348,9 +352,31 @@ describe('Live lots API with TENDER_LOT_SOURCE=goszakup', () => {
       .get('/api/v1/lots/goszakup:900000001')
       .expect(200);
 
-    expect(detail.body).toEqual(LIVE_LOT);
+    expect(detail.body).toEqual({
+      ...LIVE_LOT,
+      documents: [
+        {
+          id: '500001',
+          name: 'Техническая спецификация',
+          type: null,
+          mimeType: 'application/pdf',
+          sizeBytes: null,
+          sourceUrl: 'https://goszakup.gov.kz/files/download_file/500001/tech-spec.pdf',
+        },
+        {
+          id: '500002',
+          name: 'Проект договора',
+          type: null,
+          mimeType: 'application/pdf',
+          sizeBytes: null,
+          sourceUrl: 'https://goszakup.gov.kz/files/download_file/500002/contract-draft.pdf',
+        },
+      ],
+    });
     // The list read one bounded page; the detail read one record by id — nothing else.
     expect(upstreamRequests).toHaveLength(2);
+    expect(upstreamRequests[0]?.query).toBe(GOSZAKUP_LOTS_QUERY);
+    expect(upstreamRequests[1]?.query).toBe(GOSZAKUP_LOT_DETAIL_QUERY);
     expect(upstreamRequests[1]?.variables).toEqual({ filter: { id: [900000001] }, limit: 1 });
     expect(detail.text).not.toContain(TOKEN);
   });
