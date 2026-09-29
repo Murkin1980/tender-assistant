@@ -6,8 +6,13 @@ import {
   deadlineLabel,
   fetchLotSourceStatus,
   fetchLotsApi,
+  lotRequirementCategories,
+  requirementCategoryLabel,
+  requirementsStatusLabel,
   timingLabel,
   type Lot,
+  type LotDocument,
+  type LotRequirements,
   type LotSourceStatus,
 } from '../../../lib/lots';
 
@@ -57,6 +62,20 @@ function failureText(status: number | 'unreachable', source: LotSourceStatus | n
   return 'Не удалось загрузить тендер. Обновите страницу, чтобы повторить.';
 }
 
+function resolveDocumentName(
+  sourceDocumentId: string,
+  documents: readonly LotDocument[] | undefined,
+): string {
+  const matched = documents?.find((doc) => doc.id === sourceDocumentId);
+  return matched?.name || sourceDocumentId;
+}
+
+const DEFAULT_UNAVAILABLE_REQUIREMENTS: LotRequirements = {
+  status: 'UNAVAILABLE',
+  items: [],
+  warnings: ['Официальные документы закупки отсутствуют — нужно проверить вручную в источнике.'],
+};
+
 export default async function LotPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const [source, { status, lot }] = await Promise.all([
@@ -64,6 +83,15 @@ export default async function LotPage({ params }: { params: Promise<{ id: string
     loadLot(normalizedId(id)),
   ]);
   if (status === 404) notFound();
+
+  const requirements = lot?.requirements ?? DEFAULT_UNAVAILABLE_REQUIREMENTS;
+  const groupedRequirements = lotRequirementCategories
+    .map((category) => ({
+      category,
+      label: requirementCategoryLabel(category),
+      items: requirements.items.filter((item) => item.category === category),
+    }))
+    .filter((group) => group.items.length > 0);
 
   return (
     <main className="lots-shell">
@@ -189,6 +217,56 @@ export default async function LotPage({ params }: { params: Promise<{ id: string
                 );
               })}
             </ul>
+          )}
+          <h2>Требования</h2>
+          <p>
+            <span className="requirements-badge" data-requirements={requirements.status}>
+              {requirements.status} · {requirementsStatusLabel(requirements.status)}
+            </span>
+          </p>
+          <p className="triage-note">
+            Извлечённые факты из официальных документов закупки приводятся отдельно от внутренней
+            операционной рекомендации и не заменяют проверку первоисточника.
+          </p>
+          {groupedRequirements.length > 0 && (
+            <div className="requirements-groups">
+              {groupedRequirements.map((group) => (
+                <section
+                  key={group.category}
+                  className="requirements-group"
+                  data-category={group.category}
+                >
+                  <h3>{group.label}</h3>
+                  <ul className="requirements-list">
+                    {group.items.map((item, idx) => {
+                      const docName = resolveDocumentName(item.sourceDocumentId, lot.documents);
+                      return (
+                        <li
+                          key={`${item.sourceDocumentId}-${item.category}-${idx}`}
+                          className="requirement-item"
+                        >
+                          <span className="requirement-text">{item.text}</span>{' '}
+                          <span className="requirement-source">
+                            (Документ: {docName}
+                            {item.sourceLocator ? ` · ${item.sourceLocator}` : ''})
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+              ))}
+            </div>
+          )}
+          {requirements.warnings.length > 0 && (
+            <div className="requirements-warnings">
+              <p className="requirements-warnings-title">Нужно проверить вручную:</p>
+              <ul>
+                {requirements.warnings.map((warning) => (
+                  <li key={warning}>{warning}</li>
+                ))}
+              </ul>
+            </div>
           )}
           <h2>Предмет закупки</h2>
           <p>{lot.description || 'Описание не указано.'}</p>

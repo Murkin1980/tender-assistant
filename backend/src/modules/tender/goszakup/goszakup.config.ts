@@ -10,6 +10,9 @@ export const GOSZAKUP_LOT_URL_BASE = 'https://goszakup.gov.kz/ru/view/lots/index
 /** One bounded upstream request. */
 export const DEFAULT_GOSZAKUP_TIMEOUT_MS = 15_000;
 
+/** Hard byte cap for one downloaded procurement document in memory (5 MB). */
+export const MAX_GOSZAKUP_DOCUMENT_BYTES = 5 * 1024 * 1024;
+
 /** `Query.Lots(limit)` accepts 0..200 records per page; the adapter stays bounded. */
 export const GOSZAKUP_MIN_LIMIT = 1;
 export const GOSZAKUP_MAX_LIMIT = 200;

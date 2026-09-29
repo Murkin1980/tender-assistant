@@ -139,6 +139,60 @@ describe('Lots API', () => {
           sourceUrl: 'https://goszakup.gov.kz/ru/search/lots',
         },
       ],
+      requirements: {
+        status: 'AVAILABLE',
+        items: [
+          {
+            category: 'SUBJECT',
+            text: 'Наименование товара: Столы письменные из ЛДСП для учебных аудиторий',
+            sourceDocumentId: 'doc-fixture-1-1',
+            sourceLocator: 'Стр. 1',
+          },
+          {
+            category: 'QUANTITY',
+            text: 'Количество: 6 комплектов',
+            sourceDocumentId: 'doc-fixture-1-1',
+            sourceLocator: 'Стр. 1',
+          },
+          {
+            category: 'DIMENSIONS',
+            text: 'Габаритные размеры: 1200х600х750 мм, толщина столешницы 16 мм',
+            sourceDocumentId: 'doc-fixture-1-1',
+            sourceLocator: 'Стр. 1',
+          },
+          {
+            category: 'MATERIAL',
+            text: 'Материал изготовления: ЛДСП класса эмиссии Е1, кромка ПВХ 2 мм',
+            sourceDocumentId: 'doc-fixture-1-1',
+            sourceLocator: 'Стр. 1',
+          },
+          {
+            category: 'DELIVERY',
+            text: 'Место и срок поставки: г. Алматы, Алатауский район, доставка и сборка в течение 15 календарных дней',
+            sourceDocumentId: 'doc-fixture-1-1',
+            sourceLocator: 'Стр. 2',
+          },
+          {
+            category: 'QUALIFICATION',
+            text: 'Квалификационные требования: наличие опыта поставки корпусной мебели и отсутствие налоговой задолженности',
+            sourceDocumentId: 'doc-fixture-1-1',
+            sourceLocator: 'Стр. 2',
+          },
+          {
+            category: 'SUPPORTING_DOCUMENT',
+            text: 'Подтверждающие документы: сертификат соответствия ЕАЭС и паспорт изделия при поставке',
+            sourceDocumentId: 'doc-fixture-1-2',
+            sourceLocator: 'Стр. 1',
+          },
+          {
+            category: 'DELIVERY',
+            text: 'Гарантийный срок: не менее 12 месяцев со дня подписания акта приёма-передачи',
+            sourceDocumentId: 'doc-fixture-1-2',
+            sourceLocator: 'Стр. 1',
+          },
+        ],
+        warnings: [],
+      },
     });
   });
 
@@ -215,6 +269,68 @@ describe('Lots API', () => {
 
     const detail6 = await request(app.getHttpServer()).get('/api/v1/lots/fixture-6').expect(200);
     expect(detail6.body.documents).toEqual([]);
+  });
+
+  it('extracts deterministic requirements on detail only across AVAILABLE, PARTIAL and UNAVAILABLE states', async () => {
+    const list = await request(app.getHttpServer()).get('/api/v1/lots').expect(200);
+    for (const lot of list.body as Record<string, unknown>[]) {
+      expect(lot.requirements).toBeUndefined();
+    }
+
+    // fixture-1: two text-native PDFs -> AVAILABLE
+    const detail1 = await request(app.getHttpServer()).get('/api/v1/lots/fixture-1').expect(200);
+    expect(detail1.body.requirements.status).toBe('AVAILABLE');
+    expect(detail1.body.requirements.warnings).toEqual([]);
+    expect(detail1.body.requirements.items).toHaveLength(8);
+
+    // fixture-2: text-native DOCX (with null mimeType) + drawing reference -> PARTIAL
+    const detail2 = await request(app.getHttpServer()).get('/api/v1/lots/fixture-2').expect(200);
+    expect(detail2.body.requirements).toEqual({
+      status: 'PARTIAL',
+      items: [
+        {
+          category: 'SUBJECT',
+          text: 'Наименование товара: Стеллажи библиотечные односторонние из ЛДСП',
+          sourceDocumentId: 'doc-fixture-2-1',
+          sourceLocator: 'Табл. 1, стр. 1',
+        },
+        {
+          category: 'QUANTITY',
+          text: 'Количество: 10 штук',
+          sourceDocumentId: 'doc-fixture-2-1',
+          sourceLocator: 'Табл. 1, стр. 2',
+        },
+        {
+          category: 'MATERIAL',
+          text: 'Материал: ЛДСП толщиной 16 мм, торцы облицованы кромкой ПВХ 2 мм',
+          sourceDocumentId: 'doc-fixture-2-1',
+          sourceLocator: 'Табл. 1, стр. 3',
+        },
+      ],
+      warnings: [
+        'Документ «Спецификация стеллажей (пример)» (Абз. 1): обнаружена отсылка к чертежу, схеме или неполным данным — нужно проверить вручную.',
+      ],
+    });
+
+    // fixture-5: image-only PDF without text layer -> UNAVAILABLE (no OCR)
+    const detail5 = await request(app.getHttpServer()).get('/api/v1/lots/fixture-5').expect(200);
+    expect(detail5.body.requirements).toEqual({
+      status: 'UNAVAILABLE',
+      items: [],
+      warnings: [
+        'Документ «Техническая спецификация шкафов (пример)»: текстовый слой в PDF отсутствует (возможно, скан без текстового слоя; OCR не используется) — нужно проверить вручную.',
+      ],
+    });
+
+    // fixture-3: no documents -> UNAVAILABLE
+    const detail3 = await request(app.getHttpServer()).get('/api/v1/lots/fixture-3').expect(200);
+    expect(detail3.body.requirements).toEqual({
+      status: 'UNAVAILABLE',
+      items: [],
+      warnings: [
+        'Официальные документы закупки отсутствуют — нужно проверить вручную в источнике.',
+      ],
+    });
   });
 
   it('assesses every listed lot and keeps excluded lots visible', async () => {

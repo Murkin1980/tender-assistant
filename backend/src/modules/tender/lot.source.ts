@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import type { Lot, LotFilters } from './lot';
-import { LOT_FIXTURES } from './lots.fixtures';
+import type { Lot, LotDocument, LotFilters } from './lot';
+import type { DocumentBytesResult } from './lot-requirements';
+import { FIXTURE_DOCUMENT_BYTES, LOT_FIXTURES } from './lots.fixtures';
 
 /** `TENDER_LOT_SOURCE` values the backend accepts. */
 export type LotSourceMode = 'fixture' | 'goszakup';
@@ -60,6 +61,12 @@ export interface LotSource {
    *          Upstream trouble raises {@link LotSourceUnavailableError} instead.
    */
   fetchLot(id: string): Promise<Lot | null>;
+
+  /**
+   * Bounded detail-only byte retrieval for one official procurement document.
+   * Never called on list endpoints and never persists bytes to disk.
+   */
+  fetchDocumentBytes?(document: LotDocument): Promise<DocumentBytesResult>;
 }
 
 export const LOT_SOURCE = Symbol('LOT_SOURCE');
@@ -76,5 +83,16 @@ export class FixtureLotSource implements LotSource {
   fetchLot(id: string): Promise<Lot | null> {
     const lot = LOT_FIXTURES.find((item) => item.id === id);
     return Promise.resolve(lot ? { ...lot } : null);
+  }
+
+  fetchDocumentBytes(document: LotDocument): Promise<DocumentBytesResult> {
+    const bytes = FIXTURE_DOCUMENT_BYTES[document.id];
+    if (!bytes) {
+      return Promise.resolve({
+        status: 'UNAVAILABLE',
+        reason: 'не удалось безопасно получить байты файла из источника',
+      });
+    }
+    return Promise.resolve({ status: 'OK', bytes });
   }
 }

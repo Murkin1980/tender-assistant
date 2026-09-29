@@ -37,6 +37,43 @@ export interface LotDocument {
   sourceUrl: string;
 }
 
+/**
+ * CP-12 detail-only deterministic requirements extraction state.
+ * `AVAILABLE` means every attached document was parsed and yielded requirements without warnings;
+ * `PARTIAL` means at least one requirement was extracted but manual review is still required;
+ * `UNAVAILABLE` means no requirements could be safely extracted.
+ */
+export type LotRequirementsStatus = 'AVAILABLE' | 'PARTIAL' | 'UNAVAILABLE';
+
+export type LotRequirementCategory =
+  | 'SUBJECT'
+  | 'QUANTITY'
+  | 'DIMENSIONS'
+  | 'MATERIAL'
+  | 'DELIVERY'
+  | 'QUALIFICATION'
+  | 'SUPPORTING_DOCUMENT'
+  | 'OTHER';
+
+/**
+ * One deterministic, evidence-linked requirement statement extracted from an official document.
+ * Never invented: `text` comes from actual document text and `sourceDocumentId` identifies the
+ * exact `LotDocument` it came from.
+ */
+export interface LotRequirementItem {
+  category: LotRequirementCategory;
+  text: string;
+  sourceDocumentId: string;
+  sourceLocator: string | null;
+}
+
+/** CP-12 detail-only requirements view derived from official procurement documents. */
+export interface LotRequirements {
+  status: LotRequirementsStatus;
+  items: LotRequirementItem[];
+  warnings: string[];
+}
+
 /** Public list/detail contract. Amounts are in KZT, deadlines are ISO-8601. */
 export interface Lot {
   id: string;
@@ -97,9 +134,10 @@ export interface AssessedLot extends Lot {
   timing: LotTiming;
 }
 
-/** Detail-only response guaranteed to carry the normalized documents array. */
+/** Detail-only response guaranteed to carry normalized documents and extracted requirements. */
 export interface AssessedLotDetail extends AssessedLot {
   documents: LotDocument[];
+  requirements: LotRequirements;
 }
 
 export interface LotFilters {

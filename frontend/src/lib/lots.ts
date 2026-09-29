@@ -60,6 +60,58 @@ export interface LotDocument {
   sourceUrl: string;
 }
 
+/**
+ * CP-12 detail-only deterministic requirements extraction contract.
+ */
+export const lotRequirementsStatuses = ['AVAILABLE', 'PARTIAL', 'UNAVAILABLE'] as const;
+export type LotRequirementsStatus = (typeof lotRequirementsStatuses)[number];
+
+export const lotRequirementCategories = [
+  'SUBJECT',
+  'QUANTITY',
+  'DIMENSIONS',
+  'MATERIAL',
+  'DELIVERY',
+  'QUALIFICATION',
+  'SUPPORTING_DOCUMENT',
+  'OTHER',
+] as const;
+
+export type LotRequirementCategory = (typeof lotRequirementCategories)[number];
+
+export interface LotRequirementItem {
+  category: LotRequirementCategory;
+  text: string;
+  sourceDocumentId: string;
+  sourceLocator: string | null;
+}
+
+export interface LotRequirements {
+  status: LotRequirementsStatus;
+  items: LotRequirementItem[];
+  warnings: string[];
+}
+
+const REQUIREMENT_CATEGORY_LABELS: Readonly<Record<LotRequirementCategory, string>> = {
+  SUBJECT: 'Предмет закупки',
+  QUANTITY: 'Количество и объём',
+  DIMENSIONS: 'Размеры и габариты',
+  MATERIAL: 'Материалы',
+  DELIVERY: 'Поставка и сроки',
+  QUALIFICATION: 'Квалификационные требования',
+  SUPPORTING_DOCUMENT: 'Подтверждающие документы',
+  OTHER: 'Прочие требования',
+};
+
+export const requirementCategoryLabel = (category: LotRequirementCategory): string =>
+  REQUIREMENT_CATEGORY_LABELS[category];
+
+export const requirementsStatusLabel = (status: LotRequirementsStatus): string => {
+  if (status === 'AVAILABLE') return 'Извлечены из документов';
+  if (status === 'PARTIAL') return 'Извлечены частично · нужно проверить вручную';
+  return 'Не удалось извлечь · нужно проверить вручную';
+};
+
 /** Mirrors the backend public JSON contract; no fixture data is shipped to the frontend. */
 export interface Lot {
   id: string;
@@ -77,6 +129,7 @@ export interface Lot {
   timing: LotTiming;
   actionability: { status: LotActionStatus };
   documents?: LotDocument[];
+  requirements?: LotRequirements;
 }
 
 export type SearchParams = Record<string, string | string[] | undefined>;

@@ -549,6 +549,110 @@ describe('Lots server pages through the backend API', () => {
     expect(callsTo(`/api/v1/lots/${docLot.id}`)).toHaveLength(0);
     expect(html).not.toContain('Документы закупки');
     expect(html).not.toContain('Документы не указаны источником');
+    expect(html).not.toContain('<h2>Требования</h2>');
+  });
+
+  it('renders AVAILABLE requirements grouped by category with source document and locator', async () => {
+    const lotWithAvailableReqs: Lot = {
+      ...docLot,
+      requirements: {
+        status: 'AVAILABLE',
+        items: [
+          {
+            category: 'SUBJECT',
+            text: 'Наименование товара: Столы письменные из ЛДСП',
+            sourceDocumentId: 'doc-1',
+            sourceLocator: 'Стр. 1',
+          },
+          {
+            category: 'DIMENSIONS',
+            text: 'Габаритные размеры: 1200х600х750 мм',
+            sourceDocumentId: 'doc-1',
+            sourceLocator: 'Стр. 1, п. 2.1',
+          },
+          {
+            category: 'SUPPORTING_DOCUMENT',
+            text: 'Подтверждающие документы: сертификат соответствия ЕАЭС',
+            sourceDocumentId: 'doc-2',
+            sourceLocator: null,
+          },
+        ],
+        warnings: [],
+      },
+    };
+    mockApi({ source: response(fixtureSource), detail: response(lotWithAvailableReqs) });
+    const html = renderToStaticMarkup(
+      await LotPage({ params: Promise.resolve({ id: lotWithAvailableReqs.id }) }),
+    );
+
+    expect(html).toContain('<h2>Требования</h2>');
+    expect(html).toContain('data-requirements="AVAILABLE"');
+    expect(html).toContain('AVAILABLE · Извлечены из документов');
+    expect(html).toContain(
+      'Извлечённые факты из официальных документов закупки приводятся отдельно от внутренней операционной рекомендации',
+    );
+    expect(html).toContain('<h3>Предмет закупки</h3>');
+    expect(html).toContain('Наименование товара: Столы письменные из ЛДСП');
+    expect(html).toContain('(Документ: Техническая спецификация · Стр. 1)');
+    expect(html).toContain('<h3>Размеры и габариты</h3>');
+    expect(html).toContain('(Документ: Техническая спецификация · Стр. 1, п. 2.1)');
+    expect(html).toContain('<h3>Подтверждающие документы</h3>');
+    expect(html).toContain('(Документ: Проект договора)');
+    expect(html).not.toContain('Нужно проверить вручную:');
+  });
+
+  it('renders PARTIAL requirements with extracted items and manual-review warnings', async () => {
+    const lotWithPartialReqs: Lot = {
+      ...docLot,
+      requirements: {
+        status: 'PARTIAL',
+        items: [
+          {
+            category: 'MATERIAL',
+            text: 'Материал: ЛДСП толщиной 16 мм, кромка ПВХ 2 мм',
+            sourceDocumentId: 'doc-1',
+            sourceLocator: 'Табл. 1, стр. 3',
+          },
+        ],
+        warnings: [
+          'Документ «Техническая спецификация» (Абз. 1): обнаружена отсылка к чертежу, схеме или неполным данным — нужно проверить вручную.',
+        ],
+      },
+    };
+    mockApi({ source: response(fixtureSource), detail: response(lotWithPartialReqs) });
+    const html = renderToStaticMarkup(
+      await LotPage({ params: Promise.resolve({ id: lotWithPartialReqs.id }) }),
+    );
+
+    expect(html).toContain('data-requirements="PARTIAL"');
+    expect(html).toContain('PARTIAL · Извлечены частично · нужно проверить вручную');
+    expect(html).toContain('<h3>Материалы</h3>');
+    expect(html).toContain('Материал: ЛДСП толщиной 16 мм, кромка ПВХ 2 мм');
+    expect(html).toContain('(Документ: Техническая спецификация · Табл. 1, стр. 3)');
+    expect(html).toContain('Нужно проверить вручную:');
+    expect(html).toContain('обнаружена отсылка к чертежу, схеме или неполным данным');
+  });
+
+  it('renders UNAVAILABLE requirements state for unsupported or missing documents', async () => {
+    const lotWithUnavailableReqs: Lot = {
+      ...docLot,
+      requirements: {
+        status: 'UNAVAILABLE',
+        items: [],
+        warnings: [
+          'Документ «Техническая спецификация»: текстовый слой в PDF отсутствует (возможно, скан без текстового слоя; OCR не используется) — нужно проверить вручную.',
+        ],
+      },
+    };
+    mockApi({ source: response(fixtureSource), detail: response(lotWithUnavailableReqs) });
+    const html = renderToStaticMarkup(
+      await LotPage({ params: Promise.resolve({ id: lotWithUnavailableReqs.id }) }),
+    );
+
+    expect(html).toContain('data-requirements="UNAVAILABLE"');
+    expect(html).toContain('UNAVAILABLE · Не удалось извлечь · нужно проверить вручную');
+    expect(html).toContain('Нужно проверить вручную:');
+    expect(html).toContain('текстовый слой в PDF отсутствует');
   });
 
   it('makes no origin claim on a detail page whose source status is unreadable', async () => {

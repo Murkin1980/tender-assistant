@@ -1,8 +1,10 @@
+import type { DocumentBytesResult } from '../lot-requirements';
 import {
   DEFAULT_GOSZAKUP_GRAPHQL_URL,
   DEFAULT_GOSZAKUP_TIMEOUT_MS,
   GOSZAKUP_MAX_LIMIT,
   GOSZAKUP_MIN_LIMIT,
+  MAX_GOSZAKUP_DOCUMENT_BYTES,
 } from './goszakup.config';
 import {
   GOSZAKUP_LOTS_QUERY,
@@ -43,6 +45,35 @@ function redact(text: string, token: string): string {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
+}
+
+const HEAD_DECODER = new TextDecoder('utf-8', { fatal: false });
+
+/**
+ * Validates that a document URL is an official `https://*.goszakup.gov.kz` file-download URL
+ * (`/files/download_file/...` or `/uploads/...`) and not a registry HTML view or foreign host.
+ */
+function parseOfficialDocumentFileUrl(sourceUrl: string): string | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(sourceUrl.trim());
+  } catch {
+    return null;
+  }
+  if (parsed.protocol !== 'https:') return null;
+  const host = parsed.hostname.toLowerCase();
+  if (host !== 'goszakup.gov.kz' && !host.endsWith('.goszakup.gov.kz')) return null;
+  if (host === 'ows.goszakup.gov.kz') return null;
+
+  const normalizedPath = parsed.pathname.replace(/\/+/g, '/');
+  if (
+    !normalizedPath.startsWith('/files/download_file/') &&
+    !normalizedPath.startsWith('/uploads/')
+  ) {
+    return null;
+  }
+  parsed.pathname = normalizedPath;
+  return parsed.toString();
 }
 
 /** Read-only OWS v3 client. Uses the Node 22 built-in fetch; no extra dependency, no retries. */
@@ -182,6 +213,98 @@ export class GoszakupClient {
     }
 
     return data.Lots as GoszakupLotDto[];
+  }
+
+  /**
+   * Bounded read-only retrieval of one official procurement document's bytes from the Goszakup
+   * portal. Never sends `GOSZAKUP_TOKEN` to portal file hosts, never follows redirects, enforces
+   * a hard byte cap in memory and never persists bytes to disk.
+   */
+  async fetchDocumentBytes(sourceUrl: string): Promise<DocumentBytesResult> {
+    const validatedUrl = parseOfficialDocumentFileUrl(sourceUrl);
+    if (!validatedUrl) {
+      return {
+        status: 'UNAVAILABLE',
+        reason: 'ссылка ведёт на карточку реестра, а не на прямой файл документа',
+      };
+    }
+
+    let response: Response;
+    try {
+      response = await fetch(validatedUrl, {
+        method: 'GET',
+        headers: {
+          Accept:
+            'application/pdf, application/vnd.openxmlformats-officedocument.wordprocessingml.document, application/octet-stream',
+        },
+        redirect: 'error',
+        signal: AbortSignal.timeout(this.timeoutMs),
+      });
+    } catch {
+      return {
+        status: 'UNAVAILABLE',
+        reason: 'не удалось безопасно получить байты файла из источника',
+      };
+    }
+
+    if (!response.ok) {
+      return {
+        status: 'UNAVAILABLE',
+        reason: `источник вернул HTTP ${response.status} при запросе файла`,
+      };
+    }
+
+    const contentLengthHeader = response.headers.get('content-length');
+    if (contentLengthHeader !== null) {
+      const declaredLength = Number(contentLengthHeader);
+      if (Number.isFinite(declaredLength) && declaredLength > MAX_GOSZAKUP_DOCUMENT_BYTES) {
+        return {
+          status: 'UNAVAILABLE',
+          reason: 'размер файла превышает допустимый лимит для анализа в памяти',
+        };
+      }
+    }
+
+    const contentType = (response.headers.get('content-type') ?? '').toLowerCase();
+    if (contentType.includes('text/html')) {
+      return {
+        status: 'UNAVAILABLE',
+        reason: 'источник вернул HTML-страницу вместо файла документа',
+      };
+    }
+
+    let bytes: Uint8Array;
+    try {
+      bytes = new Uint8Array(await response.arrayBuffer());
+    } catch {
+      return {
+        status: 'UNAVAILABLE',
+        reason: 'не удалось прочитать поток байтов документа',
+      };
+    }
+
+    if (bytes.byteLength > MAX_GOSZAKUP_DOCUMENT_BYTES) {
+      return {
+        status: 'UNAVAILABLE',
+        reason: 'размер файла превышает допустимый лимит для анализа в памяти',
+      };
+    }
+
+    const headText = HEAD_DECODER.decode(bytes.subarray(0, Math.min(bytes.byteLength, 512)));
+    if (headText.includes('Доступ к документу запрещен')) {
+      return {
+        status: 'UNAVAILABLE',
+        reason: 'доступ к файлу ограничен источником (Доступ к документу запрещен)',
+      };
+    }
+    if (/^\s*<(?:!doctype\s+html|html)\b/i.test(headText)) {
+      return {
+        status: 'UNAVAILABLE',
+        reason: 'источник вернул HTML-страницу вместо файла документа',
+      };
+    }
+
+    return { status: 'OK', bytes };
   }
 }
 
