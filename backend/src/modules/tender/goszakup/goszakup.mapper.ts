@@ -1,8 +1,9 @@
-import type { Lot, LotProcurement } from '../lot';
+import type { Lot, LotDocument, LotProcurement } from '../lot';
 import {
   GOSZAKUP_ID_PREFIX,
   GOSZAKUP_LOT_URL_BASE,
   GOSZAKUP_MAX_LOT_ID,
+  GOSZAKUP_PORTAL_BASE,
   GOSZAKUP_SOURCE,
 } from './goszakup.config';
 import type { GoszakupLotDto, GoszakupRefLabelDto } from './goszakup-lots.query';
@@ -65,6 +66,103 @@ const toIsoDate = (value: string | null | undefined): string => toIsoOrNull(valu
 const refLabel = (ref: GoszakupRefLabelDto | null | undefined): string | null =>
   orNull(pickText(ref?.nameRu, ref?.nameKz));
 
+const KNOWN_MIME_TYPES: Readonly<Record<string, string>> = {
+  pdf: 'application/pdf',
+  doc: 'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xls: 'application/vnd.ms-excel',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  zip: 'application/zip',
+  rar: 'application/x-rar-compressed',
+  odt: 'application/vnd.oasis.opendocument.text',
+  ods: 'application/vnd.oasis.opendocument.spreadsheet',
+  rtf: 'application/rtf',
+  txt: 'text/plain',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+};
+
+/**
+ * Derives a standard MIME type from filename or path extension when available.
+ * Missing or unrecognized extensions stay `null`.
+ */
+function deriveMimeType(
+  filename: string | null | undefined,
+  path: string | null | undefined,
+): string | null {
+  const target = pickText(filename, path);
+  if (!target) return null;
+  const match = target.match(/\.([a-zA-Z0-9]+)(?:[?#]|$)/);
+  if (!match || !match[1]) return null;
+  const ext = match[1].toLowerCase();
+  return KNOWN_MIME_TYPES[ext] ?? null;
+}
+
+/**
+ * Resolves an official Goszakup source URL for a document.
+ * Relative paths are resolved against the official portal; foreign schemes/hosts are safely
+ * rejected in favor of the official lot page.
+ */
+function resolveSourceUrl(filePath: string | null | undefined, lotId: number): string {
+  const text = filePath?.trim();
+  if (text) {
+    try {
+      if (text.startsWith('http://') || text.startsWith('https://')) {
+        const parsed = new URL(text);
+        if (parsed.hostname === 'goszakup.gov.kz' || parsed.hostname.endsWith('.goszakup.gov.kz')) {
+          parsed.protocol = 'https:';
+          return parsed.toString();
+        }
+        return `${GOSZAKUP_LOT_URL_BASE}/id/${lotId}`;
+      }
+    } catch {
+      return `${GOSZAKUP_LOT_URL_BASE}/id/${lotId}`;
+    }
+    if (text.startsWith('/')) return `${GOSZAKUP_PORTAL_BASE}${text}`;
+    return `${GOSZAKUP_PORTAL_BASE}/${text}`;
+  }
+  return `${GOSZAKUP_LOT_URL_BASE}/id/${lotId}`;
+}
+
+/**
+ * Normalizes official procurement documents from `Lots.Files` and `TrdBuy.Files`.
+ * Preserves stable upstream ordering, skips malformed entries, and deduplicates by source ID.
+ */
+export function mapGoszakupDocuments(lot: GoszakupLotDto): LotDocument[] {
+  const lotId = typeof lot.id === 'number' && Number.isInteger(lot.id) ? lot.id : 0;
+  const rawFiles = [
+    ...(Array.isArray(lot.Files) ? lot.Files : []),
+    ...(Array.isArray(lot.TrdBuy?.Files) ? lot.TrdBuy.Files : []),
+  ];
+
+  const seenIds = new Set<string>();
+  const documents: LotDocument[] = [];
+
+  for (const file of rawFiles) {
+    if (!file || typeof file !== 'object') continue;
+    if (typeof file.id !== 'number' || !Number.isInteger(file.id)) continue;
+
+    const id = String(file.id);
+    if (seenIds.has(id)) continue;
+
+    const name = pickText(file.nameRu, file.originalName, file.nameKz);
+    if (!name) continue;
+
+    seenIds.add(id);
+    documents.push({
+      id,
+      name,
+      type: null,
+      mimeType: deriveMimeType(file.originalName, file.filePath),
+      sizeBytes: null,
+      sourceUrl: resolveSourceUrl(file.filePath, lotId),
+    });
+  }
+
+  return documents;
+}
+
 const toRegion = (katoList: readonly string[] | null | undefined): string => {
   if (!katoList || katoList.length === 0) return '';
   const regions = new Set<string>();
@@ -122,13 +220,16 @@ function buildProcurement(lot: GoszakupLotDto, customerBin: string): LotProcurem
  * @returns `null` when the record has no usable id or amount — such a record is skipped
  *          rather than padded with placeholder values.
  */
-export function mapGoszakupLot(lot: GoszakupLotDto | null | undefined): Lot | null {
+export function mapGoszakupLot(
+  lot: GoszakupLotDto | null | undefined,
+  options?: { includeDocuments?: boolean },
+): Lot | null {
   if (!lot || typeof lot.id !== 'number' || !Number.isInteger(lot.id)) return null;
   if (typeof lot.amount !== 'number' || !Number.isFinite(lot.amount)) return null;
 
   const customerBin = pickText(lot.customerBin, lot.Customer?.bin);
 
-  return {
+  const mapped: Lot = {
     id: `${GOSZAKUP_ID_PREFIX}${lot.id}`,
     source: GOSZAKUP_SOURCE,
     sourceUrl: `${GOSZAKUP_LOT_URL_BASE}/id/${lot.id}`,
@@ -141,6 +242,12 @@ export function mapGoszakupLot(lot: GoszakupLotDto | null | undefined): Lot | nu
     description: buildDescription(lot, customerBin),
     procurement: buildProcurement(lot, customerBin),
   };
+
+  if (options?.includeDocuments) {
+    mapped.documents = mapGoszakupDocuments(lot);
+  }
+
+  return mapped;
 }
 
 /** Deterministic normalization of one bounded page; unusable records are dropped in order. */

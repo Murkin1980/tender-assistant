@@ -159,6 +159,37 @@ export default async function LotPage({ params }: { params: Promise<{ id: string
             официальным статусом закупки: официальный статус указан отдельным полем выше, а
             первоисточником остаётся запись источника.
           </p>
+          <h2>Документы закупки</h2>
+          {!lot.documents || lot.documents.length === 0 ? (
+            <p>Документы не указаны источником.</p>
+          ) : (
+            <ul className="documents-list">
+              {lot.documents.map((doc) => {
+                const metaParts = [
+                  doc.type ? `Тип: ${doc.type}` : null,
+                  doc.mimeType,
+                  doc.sizeBytes !== null ? `${doc.sizeBytes} байт` : null,
+                ].filter(Boolean);
+                return (
+                  <li key={doc.id} className="document-item">
+                    <span className="document-name">{doc.name}</span>
+                    {metaParts.length > 0 && (
+                      <span className="document-meta"> ({metaParts.join(', ')})</span>
+                    )}
+                    {' · '}
+                    <a
+                      href={doc.sourceUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="document-link"
+                    >
+                      Открыть документ
+                    </a>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
           <h2>Предмет закупки</h2>
           <p>{lot.description || 'Описание не указано.'}</p>
           <a href={lot.sourceUrl} target="_blank" rel="noopener noreferrer">

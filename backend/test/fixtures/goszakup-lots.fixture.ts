@@ -32,7 +32,25 @@ export const FULL_LOT: GoszakupLotDto = {
     numberAnno: '0001-1',
     RefTradeMethods: { nameRu: 'Запрос котировок (пример)', nameKz: 'Ұсыныстар сұрау (мысал)' },
     RefBuyStatus: { nameRu: 'Приём заявок (пример)', nameKz: 'Өтінімдер қабылдау (мысал)' },
+    Files: [
+      {
+        id: 500002,
+        filePath: '/files/download_file/500002/contract-draft.pdf',
+        originalName: 'contract-draft.pdf',
+        nameRu: 'Проект договора',
+        nameKz: 'Шарт жобасы',
+      },
+    ],
   },
+  Files: [
+    {
+      id: 500001,
+      filePath: '/files/download_file/500001/tech-spec.pdf',
+      originalName: 'tech-spec.pdf',
+      nameRu: 'Техническая спецификация',
+      nameKz: 'Техникалық ерекшелік',
+    },
+  ],
 };
 
 /** A record that only carries the fields Goszakup guarantees: id and amount. */

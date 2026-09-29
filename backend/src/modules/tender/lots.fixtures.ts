@@ -27,6 +27,24 @@ export const LOT_FIXTURES: readonly Lot[] = [
       procurementMethod: 'Запрос котировок (пример)',
       officialStatus: 'Приём заявок (пример)',
     },
+    documents: [
+      {
+        id: 'doc-fixture-1-1',
+        name: 'Техническая спецификация (пример)',
+        type: null,
+        mimeType: 'application/pdf',
+        sizeBytes: null,
+        sourceUrl: 'https://goszakup.gov.kz/ru/search/lots',
+      },
+      {
+        id: 'doc-fixture-1-2',
+        name: 'Проект договора поставки мебели (пример)',
+        type: null,
+        mimeType: 'application/pdf',
+        sizeBytes: null,
+        sourceUrl: 'https://goszakup.gov.kz/ru/search/lots',
+      },
+    ],
   },
   {
     id: 'fixture-2',
@@ -47,6 +65,16 @@ export const LOT_FIXTURES: readonly Lot[] = [
       procurementMethod: 'Запрос предложений (пример)',
       officialStatus: 'Приём заявок (пример)',
     },
+    documents: [
+      {
+        id: 'doc-fixture-2-1',
+        name: 'Спецификация стеллажей (пример)',
+        type: null,
+        mimeType: null,
+        sizeBytes: null,
+        sourceUrl: 'https://goszakup.gov.kz/ru/search/lots',
+      },
+    ],
   },
   {
     id: 'fixture-3',
@@ -67,6 +95,7 @@ export const LOT_FIXTURES: readonly Lot[] = [
       procurementMethod: null,
       officialStatus: null,
     },
+    documents: [],
   },
   {
     id: 'fixture-4',
@@ -87,6 +116,7 @@ export const LOT_FIXTURES: readonly Lot[] = [
       procurementMethod: 'Единый источник (пример)',
       officialStatus: 'Приём заявок (пример)',
     },
+    documents: [],
   },
   {
     id: 'fixture-5',
@@ -108,6 +138,16 @@ export const LOT_FIXTURES: readonly Lot[] = [
       procurementMethod: 'Запрос котировок (пример)',
       officialStatus: 'Приём заявок (пример)',
     },
+    documents: [
+      {
+        id: 'doc-fixture-5-1',
+        name: 'Техническая спецификация шкафов (пример)',
+        type: null,
+        mimeType: 'application/pdf',
+        sizeBytes: null,
+        sourceUrl: 'https://goszakup.gov.kz/ru/search/lots',
+      },
+    ],
   },
   {
     id: 'fixture-6',
@@ -128,5 +168,6 @@ export const LOT_FIXTURES: readonly Lot[] = [
       procurementMethod: null,
       officialStatus: null,
     },
+    documents: [],
   },
 ];

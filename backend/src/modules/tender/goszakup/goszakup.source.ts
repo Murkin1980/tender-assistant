@@ -5,6 +5,7 @@ import { mapGoszakupLot, mapGoszakupLots, parseGoszakupLotId } from './goszakup.
 import { DEFAULT_LIVE_LOTS_LIMIT, GOSZAKUP_MAX_LIMIT, GOSZAKUP_MIN_LIMIT } from './goszakup.config';
 import { GoszakupClient, GoszakupUpstreamError } from './goszakup.client';
 import { translateGoszakupLotFilters } from './goszakup-filter.translator';
+import { GOSZAKUP_LOT_DETAIL_QUERY } from './goszakup-lots.query';
 
 const bound = (limit: number): number =>
   Math.min(Math.max(limit, GOSZAKUP_MIN_LIMIT), GOSZAKUP_MAX_LIMIT);
@@ -36,10 +37,14 @@ export class GoszakupLotSource implements LotSource {
     if (registryId === null) return null;
 
     return this.fromUpstream(async () => {
-      const [record] = await this.client.fetchLots({ limit: 1, filter: { id: [registryId] } });
+      const [record] = await this.client.fetchLots({
+        limit: 1,
+        filter: { id: [registryId] },
+        query: GOSZAKUP_LOT_DETAIL_QUERY,
+      });
       // A record the public contract cannot represent (no usable amount) also has no page to
       // show; it is reported as not found rather than padded with invented values.
-      return mapGoszakupLot(record);
+      return mapGoszakupLot(record, { includeDocuments: true });
     });
   }
 

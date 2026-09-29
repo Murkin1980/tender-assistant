@@ -1,6 +1,9 @@
 /** Official OWS v3 GraphQL endpoint (https://ows.goszakup.gov.kz/help/v3/schema/). */
 export const DEFAULT_GOSZAKUP_GRAPHQL_URL = 'https://ows.goszakup.gov.kz/v3/graphql';
 
+/** Official portal base URL used for resolving relative links. */
+export const GOSZAKUP_PORTAL_BASE = 'https://goszakup.gov.kz';
+
 /** Public lot registry URL used for `sourceUrl`. */
 export const GOSZAKUP_LOT_URL_BASE = 'https://goszakup.gov.kz/ru/view/lots/index';
 

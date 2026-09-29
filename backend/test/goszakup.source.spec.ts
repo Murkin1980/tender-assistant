@@ -6,7 +6,10 @@ import {
   GoszakupUpstreamError,
 } from '../src/modules/tender/goszakup/goszakup.client';
 import { DEFAULT_LIVE_LOTS_LIMIT } from '../src/modules/tender/goszakup/goszakup.config';
-import type { GoszakupLotDto } from '../src/modules/tender/goszakup/goszakup-lots.query';
+import {
+  GOSZAKUP_LOT_DETAIL_QUERY,
+  type GoszakupLotDto,
+} from '../src/modules/tender/goszakup/goszakup-lots.query';
 import { translateGoszakupLotFilters } from '../src/modules/tender/goszakup/goszakup-filter.translator';
 import { LOT_FIXTURES } from '../src/modules/tender/lots.fixtures';
 import { FULL_LOT, MINIMAL_LOT, UNUSABLE_LOTS } from './fixtures/goszakup-lots.fixture';
@@ -146,8 +149,9 @@ describe('GoszakupLotSource bounded reads', () => {
     expect(client.fetchLots).toHaveBeenCalledWith({
       limit: 1,
       filter: { id: [900000001] },
+      query: GOSZAKUP_LOT_DETAIL_QUERY,
     });
-    expect(lot).toEqual(mapGoszakupLot(FULL_LOT));
+    expect(lot).toEqual(mapGoszakupLot(FULL_LOT, { includeDocuments: true }));
   });
 
   it('answers a missing registry record with null', async () => {
@@ -157,6 +161,7 @@ describe('GoszakupLotSource bounded reads', () => {
     expect(client.fetchLots).toHaveBeenCalledWith({
       limit: 1,
       filter: { id: [900000404] },
+      query: GOSZAKUP_LOT_DETAIL_QUERY,
     });
   });
 

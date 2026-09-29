@@ -18,6 +18,25 @@ export interface LotProcurement {
   officialStatus: string | null;
 }
 
+/**
+ * CP-11 detail-only official procurement document contract.
+ * Exposes official metadata and official-source links without downloading or storing files.
+ */
+export interface LotDocument {
+  /** Stable identifier from the official source. */
+  id: string;
+  /** Human-readable document name from official metadata or original filename. */
+  name: string;
+  /** Semantic document type when provided by the official source, otherwise null. */
+  type: string | null;
+  /** MIME type when explicit or safely derivable from file extension, otherwise null. */
+  mimeType: string | null;
+  /** Document size in bytes when provided by the official source, otherwise null. */
+  sizeBytes: number | null;
+  /** Official source URL leading to the document file or registry page. */
+  sourceUrl: string;
+}
+
 /** Public list/detail contract. Amounts are in KZT, deadlines are ISO-8601. */
 export interface Lot {
   id: string;
@@ -32,6 +51,8 @@ export interface Lot {
   description: string;
   /** CP-08 decision metadata; always present as an object, missing values are `null`. */
   procurement: LotProcurement;
+  /** CP-11 detail-only procurement documents; omitted on list items. */
+  documents?: LotDocument[];
 }
 
 /**
@@ -74,6 +95,11 @@ export interface AssessedLot extends Lot {
   assessment: LotAssessment;
   /** CP-09 deadline state, derived next to the assessment for every lot of every source. */
   timing: LotTiming;
+}
+
+/** Detail-only response guaranteed to carry the normalized documents array. */
+export interface AssessedLotDetail extends AssessedLot {
+  documents: LotDocument[];
 }
 
 export interface LotFilters {

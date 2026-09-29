@@ -1,10 +1,14 @@
 import {
+  mapGoszakupDocuments,
   mapGoszakupLot,
   mapGoszakupLots,
   parseGoszakupLotId,
 } from '../src/modules/tender/goszakup/goszakup.mapper';
 import type { Lot } from '../src/modules/tender/lot';
-import type { GoszakupLotDto } from '../src/modules/tender/goszakup/goszakup-lots.query';
+import type {
+  GoszakupFileDto,
+  GoszakupLotDto,
+} from '../src/modules/tender/goszakup/goszakup-lots.query';
 import { FULL_LOT, MINIMAL_LOT, UNUSABLE_LOTS } from './fixtures/goszakup-lots.fixture';
 
 describe('mapGoszakupLot', () => {
@@ -45,6 +49,15 @@ describe('mapGoszakupLot', () => {
       customer: 'Кітапхана',
       description: 'БИН заказчика: 000740000002',
     });
+  });
+
+  it('attaches normalized documents only when explicitly requested for detail', () => {
+    const listLot = mapGoszakupLot(FULL_LOT);
+    expect(listLot?.documents).toBeUndefined();
+
+    const detailLot = mapGoszakupLot(FULL_LOT, { includeDocuments: true });
+    expect(detailLot?.documents).toEqual(mapGoszakupDocuments(FULL_LOT));
+    expect(detailLot?.documents).toHaveLength(2);
   });
 
   it('keeps fields the registry did not supply empty instead of inventing them', () => {
@@ -194,6 +207,115 @@ describe('mapGoszakupLots', () => {
 
   it('returns an empty list for an empty page', () => {
     expect(mapGoszakupLots([])).toEqual([]);
+  });
+});
+
+describe('mapGoszakupDocuments', () => {
+  it('normalizes lot and announcement files with stable ordering and deduced MIME', () => {
+    const docs = mapGoszakupDocuments(FULL_LOT);
+    expect(docs).toEqual([
+      {
+        id: '500001',
+        name: 'Техническая спецификация',
+        type: null,
+        mimeType: 'application/pdf',
+        sizeBytes: null,
+        sourceUrl: 'https://goszakup.gov.kz/files/download_file/500001/tech-spec.pdf',
+      },
+      {
+        id: '500002',
+        name: 'Проект договора',
+        type: null,
+        mimeType: 'application/pdf',
+        sizeBytes: null,
+        sourceUrl: 'https://goszakup.gov.kz/files/download_file/500002/contract-draft.pdf',
+      },
+    ]);
+  });
+
+  it('keeps optional metadata null when not derivable', () => {
+    const lot: GoszakupLotDto = {
+      id: 900000001,
+      Files: [
+        {
+          id: 500003,
+          originalName: 'untyped-doc',
+          nameRu: 'Документ без расширения',
+        },
+      ],
+    };
+    const docs = mapGoszakupDocuments(lot);
+    expect(docs).toEqual([
+      {
+        id: '500003',
+        name: 'Документ без расширения',
+        type: null,
+        mimeType: null,
+        sizeBytes: null,
+        sourceUrl: 'https://goszakup.gov.kz/ru/view/lots/index/id/900000001',
+      },
+    ]);
+  });
+
+  it('safely handles malformed file records and drops unusable items', () => {
+    const lot: GoszakupLotDto = {
+      id: 900000001,
+      Files: [
+        null as unknown as GoszakupFileDto,
+        { id: 1 } as unknown as GoszakupFileDto, // no name
+        { id: 'not-a-number' as unknown as number, originalName: 'bad-id.pdf' },
+        { id: 500004, originalName: 'valid.docx' },
+      ],
+    };
+    const docs = mapGoszakupDocuments(lot);
+    expect(docs).toHaveLength(1);
+    expect(docs[0]?.id).toBe('500004');
+    expect(docs[0]?.mimeType).toBe(
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    );
+  });
+
+  it('deduplicates identical file IDs across lot and announcement files', () => {
+    const lot: GoszakupLotDto = {
+      id: 900000001,
+      Files: [{ id: 500001, originalName: 'lot-file.pdf' }],
+      TrdBuy: {
+        Files: [
+          { id: 500001, originalName: 'duplicate-announcement-file.pdf' },
+          { id: 500005, originalName: 'ann-file.pdf' },
+        ],
+      },
+    };
+    const docs = mapGoszakupDocuments(lot);
+    expect(docs.map((d) => d.id)).toEqual(['500001', '500005']);
+  });
+
+  it('returns empty array when no files are provided', () => {
+    expect(mapGoszakupDocuments(MINIMAL_LOT)).toEqual([]);
+    expect(mapGoszakupDocuments({ id: 900000001, Files: [] })).toEqual([]);
+  });
+
+  it('safely resolves absolute URLs on official domain and rejects foreign hosts', () => {
+    const lot: GoszakupLotDto = {
+      id: 900000001,
+      Files: [
+        {
+          id: 500010,
+          originalName: 'portal.pdf',
+          filePath: 'https://v3bl.goszakup.gov.kz/files/download_file/500010/portal.pdf',
+        },
+        {
+          id: 500011,
+          originalName: 'foreign.pdf',
+          filePath: 'https://evil.example.com/steal.pdf',
+        },
+      ],
+    };
+    const docs = mapGoszakupDocuments(lot);
+    expect(docs[0]?.sourceUrl).toBe(
+      'https://v3bl.goszakup.gov.kz/files/download_file/500010/portal.pdf',
+    );
+    expect(docs[1]?.sourceUrl).toBe('https://goszakup.gov.kz/ru/view/lots/index/id/900000001');
   });
 });
 

@@ -119,7 +119,27 @@ describe('Lots API', () => {
       timing: FIXTURE_TIMING['fixture-1'],
     });
     const detail = await request(app.getHttpServer()).get(`/api/v1/lots/${lot.id}`).expect(200);
-    expect(detail.body).toEqual(lot);
+    expect(detail.body).toEqual({
+      ...lot,
+      documents: [
+        {
+          id: 'doc-fixture-1-1',
+          name: 'Техническая спецификация (пример)',
+          type: null,
+          mimeType: 'application/pdf',
+          sizeBytes: null,
+          sourceUrl: 'https://goszakup.gov.kz/ru/search/lots',
+        },
+        {
+          id: 'doc-fixture-1-2',
+          name: 'Проект договора поставки мебели (пример)',
+          type: null,
+          mimeType: 'application/pdf',
+          sizeBytes: null,
+          sourceUrl: 'https://goszakup.gov.kz/ru/search/lots',
+        },
+      ],
+    });
   });
 
   it('serves the additive procurement metadata on list and detail, never fabricated', async () => {
@@ -157,6 +177,44 @@ describe('Lots API', () => {
     expect((detail.body as AssessedLot & { procurement: unknown }).procurement).toEqual(
       lots.find((lot) => lot.id === 'fixture-6')?.procurement,
     );
+  });
+
+  it('serves additive documents on detail only, never on list, with fixture parity', async () => {
+    const list = await request(app.getHttpServer()).get('/api/v1/lots').expect(200);
+    for (const lot of list.body as Record<string, unknown>[]) {
+      expect(lot.documents).toBeUndefined();
+    }
+
+    // fixture-1 has multiple documents
+    const detail1 = await request(app.getHttpServer()).get('/api/v1/lots/fixture-1').expect(200);
+    expect(detail1.body.documents).toHaveLength(2);
+    expect(detail1.body.documents[0]).toEqual({
+      id: 'doc-fixture-1-1',
+      name: 'Техническая спецификация (пример)',
+      type: null,
+      mimeType: 'application/pdf',
+      sizeBytes: null,
+      sourceUrl: 'https://goszakup.gov.kz/ru/search/lots',
+    });
+
+    // fixture-2 has one document with partial metadata (null mimeType)
+    const detail2 = await request(app.getHttpServer()).get('/api/v1/lots/fixture-2').expect(200);
+    expect(detail2.body.documents).toHaveLength(1);
+    expect(detail2.body.documents[0]).toEqual({
+      id: 'doc-fixture-2-1',
+      name: 'Спецификация стеллажей (пример)',
+      type: null,
+      mimeType: null,
+      sizeBytes: null,
+      sourceUrl: 'https://goszakup.gov.kz/ru/search/lots',
+    });
+
+    // fixture-3 and fixture-6 have no documents (empty array)
+    const detail3 = await request(app.getHttpServer()).get('/api/v1/lots/fixture-3').expect(200);
+    expect(detail3.body.documents).toEqual([]);
+
+    const detail6 = await request(app.getHttpServer()).get('/api/v1/lots/fixture-6').expect(200);
+    expect(detail6.body.documents).toEqual([]);
   });
 
   it('assesses every listed lot and keeps excluded lots visible', async () => {

@@ -48,6 +48,29 @@ const lot: Lot = {
   },
 };
 
+const docLot: Lot = {
+  ...lot,
+  id: 'api-with-docs',
+  documents: [
+    {
+      id: 'doc-1',
+      name: 'Техническая спецификация',
+      type: null,
+      mimeType: 'application/pdf',
+      sizeBytes: null,
+      sourceUrl: 'https://goszakup.gov.kz/files/download_file/1/tech.pdf',
+    },
+    {
+      id: 'doc-2',
+      name: 'Проект договора',
+      type: null,
+      mimeType: null,
+      sizeBytes: null,
+      sourceUrl: 'https://goszakup.gov.kz/files/download_file/2/contract.pdf',
+    },
+  ],
+};
+
 /** CP-09: a valid deadline that has already passed. */
 const closedLot: Lot = {
   ...lot,
@@ -491,6 +514,41 @@ describe('Lots server pages through the backend API', () => {
     expect(html).toContain('role="alert"');
     expect(html).toContain('Источник Goszakup временно недоступен');
     expect(html).not.toContain(liveLot.title);
+    expect(html).not.toContain('Документы не указаны источником');
+  });
+
+  it('renders procurement documents with official links and metadata on detail', async () => {
+    mockApi({ source: response(fixtureSource), detail: response(docLot) });
+    const html = renderToStaticMarkup(
+      await LotPage({ params: Promise.resolve({ id: docLot.id }) }),
+    );
+
+    expect(html).toContain('Документы закупки');
+    expect(html).toContain('Техническая спецификация');
+    expect(html).toContain('application/pdf');
+    expect(html).toContain('https://goszakup.gov.kz/files/download_file/1/tech.pdf');
+    expect(html).toContain('Проект договора');
+    expect(html).toContain('https://goszakup.gov.kz/files/download_file/2/contract.pdf');
+    expect(html).toContain('Открыть документ');
+    expect(html).toContain('rel="noopener noreferrer"');
+  });
+
+  it('renders empty documents state when no documents are provided', async () => {
+    mockApi({ source: response(fixtureSource), detail: response({ ...lot, documents: [] }) });
+    const html = renderToStaticMarkup(await LotPage({ params: Promise.resolve({ id: lot.id }) }));
+
+    expect(html).toContain('Документы закупки');
+    expect(html).toContain('Документы не указаны источником.');
+  });
+
+  it('never displays documents or performs document queries on the list page', async () => {
+    mockApi({ source: response(fixtureSource), list: response([docLot]) });
+    const html = renderToStaticMarkup(await LotsPage({ searchParams: Promise.resolve({}) }));
+
+    expect(callsTo('/api/v1/lots')).toHaveLength(1);
+    expect(callsTo(`/api/v1/lots/${docLot.id}`)).toHaveLength(0);
+    expect(html).not.toContain('Документы закупки');
+    expect(html).not.toContain('Документы не указаны источником');
   });
 
   it('makes no origin claim on a detail page whose source status is unreadable', async () => {

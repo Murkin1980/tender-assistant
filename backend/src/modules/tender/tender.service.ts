@@ -1,6 +1,6 @@
 import { Inject, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { AssessedLot, LotFilters } from './lot';
+import type { AssessedLot, AssessedLotDetail, LotFilters } from './lot';
 import { assessLot } from './lot-assessment';
 import { deriveLotTiming } from './lot-timing';
 import { evaluateLotActionability } from './lot-actionability';
@@ -52,12 +52,14 @@ export class TenderService {
         .map((lot): AssessedLot => {
           const assessment = assessLot(lot);
           const timing = deriveLotTiming(lot, now);
-          return {
+          const assessed: AssessedLot = {
             ...lot,
             assessment,
             timing,
             actionability: { status: evaluateLotActionability({ assessment, timing }) },
           };
+          delete assessed.documents;
+          return assessed;
         })
         // Both status filters are local by design and are never part of what a source was asked
         // for. The deadline filter runs after the timing it filters on exists.
@@ -67,7 +69,7 @@ export class TenderService {
     );
   }
 
-  async get(id: string): Promise<AssessedLot> {
+  async get(id: string): Promise<AssessedLotDetail> {
     const lot = await this.fromSource(() => this.source.fetchLot(id));
     if (!lot) throw new NotFoundException('Lot not found');
     const assessment = assessLot(lot);
@@ -77,6 +79,7 @@ export class TenderService {
       assessment,
       timing,
       actionability: { status: evaluateLotActionability({ assessment, timing }) },
+      documents: lot.documents ?? [],
     };
   }
 
