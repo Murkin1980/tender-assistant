@@ -1,6 +1,6 @@
 # CP-12 — Deterministic requirements extraction
 
-Status: PLANNED — DO NOT IMPLEMENT UNTIL CP-11 IS MERGED AND OWNER EXPLICITLY STARTS CP-12
+Status: APPROVED FOR IMPLEMENTATION
 
 ## New Idea Filter
 
@@ -26,15 +26,19 @@ The first implementation must be deterministic and evidence-linked.
 
 ## Authorization boundary
 
-This checkpoint document defines the intended next stage but is **not implementation authority yet**.
+Owner explicitly started CP-12 after CP-11 was merged.
 
-Implementation may begin only after:
+CP-11 evidence now available:
 
-1. CP-11 is merged;
-2. the actual document formats/source behavior are known;
-3. the owner explicitly starts CP-12.
+- official document metadata path verified through Goszakup OWS v3 GraphQL;
+- detail-only `documents[]` contract exists;
+- official source URLs are normalized and safe;
+- no document bytes are stored;
+- CP-11 is merged in `main`.
 
-At that moment, re-run the New Idea Filter against the real CP-11 evidence.
+Implementation must still begin with bounded format reconnaissance against the actual CP-11 document source behavior. Do not assume PDF/DOCX/XLSX support from filenames alone.
+
+Before adding a parser dependency or public `requirements` contract, prove at least one real common text-native format and one bounded retrieval path for its bytes. If that proof cannot be obtained, return `PARTIAL` or `BLOCKED` rather than widening scope.
 
 ## Default implementation strategy
 
@@ -185,12 +189,31 @@ If that cannot be proven, return `PARTIAL` or `BLOCKED` with evidence rather tha
 
 ## Branch / PR
 
-When explicitly authorized later:
-
-- start from then-current `main`;
+- start from current `main`;
 - use one Arena branch;
+- keep the diff limited to CP-12;
 - one PR into `main`;
-- do not merge automatically;
-- stop after green CI.
+- **do not merge the PR**;
+- stop after green CI, or after a truthfully evidenced format/retrieval blocker.
 
-Do not begin implementation from this planning checkpoint alone.
+## Evidence / final report
+
+Return only:
+
+```text
+RESULT: PASS | BLOCKED | PARTIAL
+Branch: ...
+Commit: ...
+PR: ...
+Format reconnaissance: VERIFIED | PARTIAL | BLOCKED
+Supported format(s): ...
+Document retrieval path: ...
+Parser approach: ...
+Tests: ...
+Build: ...
+CI: ...
+Changed: ...
+Remaining: ...
+```
+
+If deterministic extraction is insufficient, do not start OCR/LLM/RAG. Report the measured gap and stop.
