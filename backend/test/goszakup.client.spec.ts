@@ -215,4 +215,64 @@ describe('GoszakupClient', () => {
     expect(error.reason).toBe('protocol');
     expect(error.message).toBe('Goszakup response is not a JSON object');
   });
+
+  describe('fetchDocumentBytes', () => {
+    it('fetches official document bytes via bounded GET without sending the OWS bearer token', async () => {
+      const pdfBytes = new TextEncoder().encode('%PDF-1.4\n1 0 obj <<>> endobj\n%%EOF');
+      stubFetch(async () => new Response(Buffer.from(pdfBytes), { status: 200 }));
+
+      const result = await buildClient().fetchDocumentBytes(
+        'https://v3bl.goszakup.gov.kz/files/download_file/277018695/197974286/',
+      );
+
+      expect(result).toEqual({ status: 'OK', bytes: pdfBytes });
+      expect(fetchCalls).toHaveLength(1);
+      expect(fetchCalls[0]?.url).toBe(
+        'https://v3bl.goszakup.gov.kz/files/download_file/277018695/197974286/',
+      );
+      expect(fetchCalls[0]?.init.method).toBe('GET');
+      expect(fetchCalls[0]?.init.redirect).toBe('error');
+      const headers = new Headers(fetchCalls[0]?.init.headers);
+      expect(headers.get('authorization')).toBeNull();
+    });
+
+    it.each([
+      'https://goszakup.gov.kz/ru/view/lots/index/id/900000001',
+      'https://goszakup.gov.kz/ru/search/lots',
+      'http://goszakup.gov.kz/files/download_file/1/spec.pdf',
+      'https://evil.example.com/files/download_file/1/spec.pdf',
+      'https://ows.goszakup.gov.kz/files/download_file/1/spec.pdf',
+      'not-a-url',
+    ])('refuses %s without performing a network call', async (url) => {
+      stubFetch(async () => new Response('should not be called', { status: 200 }));
+
+      const result = await buildClient().fetchDocumentBytes(url);
+
+      expect(result.status).toBe('UNAVAILABLE');
+      expect(fetchCalls).toHaveLength(0);
+    });
+
+    it('treats portal access-denied and HTML responses as UNAVAILABLE', async () => {
+      stubFetch(async () => new Response('Доступ к документу запрещен', { status: 200 }));
+      const denied = await buildClient().fetchDocumentBytes(
+        'https://v3bl.goszakup.gov.kz/files/download_file/98097400/',
+      );
+      expect(denied).toEqual({
+        status: 'UNAVAILABLE',
+        reason: 'доступ к файлу ограничен источником (Доступ к документу запрещен)',
+      });
+
+      stubFetch(
+        async () =>
+          new Response('<!DOCTYPE html><html><body>Login</body></html>', {
+            status: 200,
+            headers: { 'Content-Type': 'text/html' },
+          }),
+      );
+      const html = await buildClient().fetchDocumentBytes(
+        'https://goszakup.gov.kz/files/download_file/500001/tech-spec.pdf',
+      );
+      expect(html.status).toBe('UNAVAILABLE');
+    });
+  });
 });

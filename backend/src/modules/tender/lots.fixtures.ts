@@ -1,4 +1,59 @@
 import type { Lot } from './lot';
+import {
+  buildImageOnlyPdfBytes,
+  buildTextNativeDocxBytes,
+  buildTextNativePdfBytes,
+} from './lot-requirements';
+
+/**
+ * Deterministic in-memory byte payloads for the synthetic CP-11 fixture documents.
+ *
+ * Kept in memory and used by `FixtureLotSource.fetchDocumentBytes` so the default fixture path
+ * exercises the exact same byte-signature detection, PDF/DOCX parser and requirement extraction
+ * rules as live documents without network access or disk persistence:
+ * - `fixture-1` (`doc-fixture-1-1`, `doc-fixture-1-2`): text-native PDFs -> `AVAILABLE`;
+ * - `fixture-2` (`doc-fixture-2-1`, whose metadata has `mimeType: null` and no file extension):
+ *   text-native DOCX with a table + a drawing reference -> `PARTIAL` with manual-review warning;
+ * - `fixture-5` (`doc-fixture-5-1`): image-only PDF without a text layer -> `UNAVAILABLE` with
+ *   manual-review warning (no OCR).
+ */
+export const FIXTURE_DOCUMENT_BYTES: Readonly<Record<string, Uint8Array>> = {
+  'doc-fixture-1-1': buildTextNativePdfBytes([
+    [
+      '1. Предмет закупки',
+      'Наименование товара: Столы письменные из ЛДСП для учебных аудиторий',
+      'Количество: 6 комплектов',
+      '2. Технические характеристики и материалы',
+      'Габаритные размеры: 1200х600х750 мм, толщина столешницы 16 мм',
+      'Материал изготовления: ЛДСП класса эмиссии Е1, кромка ПВХ 2 мм',
+    ],
+    [
+      '3. Условия поставки и квалификация',
+      'Место и срок поставки: г. Алматы, Алатауский район, доставка и сборка в течение 15 календарных дней',
+      'Квалификационные требования: наличие опыта поставки корпусной мебели и отсутствие налоговой задолженности',
+    ],
+  ]),
+  'doc-fixture-1-2': buildTextNativePdfBytes([
+    [
+      '1. Условия договора и приёмки',
+      'Подтверждающие документы: сертификат соответствия ЕАЭС и паспорт изделия при поставке',
+      'Гарантийный срок: не менее 12 месяцев со дня подписания акта приёма-передачи',
+    ],
+  ]),
+  'doc-fixture-2-1': buildTextNativeDocxBytes({
+    tables: [
+      [
+        ['Наименование товара', 'Стеллажи библиотечные односторонние из ЛДСП'],
+        ['Количество', '10 штук'],
+        ['Материал', 'ЛДСП толщиной 16 мм, торцы облицованы кромкой ПВХ 2 мм'],
+      ],
+    ],
+    paragraphs: [
+      'Точные габаритные размеры секций и схема расстановки определяются согласно чертежу в графическом приложении (см. рисунок 1).',
+    ],
+  }),
+  'doc-fixture-5-1': buildImageOnlyPdfBytes(),
+};
 
 // Synthetic records, not real procurement notices. URLs lead to the source registry.
 // Together they cover all three CP-07 triage outcomes: MATCH, REVIEW and EXCLUDE, and — per

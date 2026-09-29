@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import type { Lot, LotFilters } from '../lot';
+import type { Lot, LotDocument, LotFilters } from '../lot';
+import type { DocumentBytesResult } from '../lot-requirements';
 import { LotSourceUnavailableError, type LotSource } from '../lot.source';
 import { mapGoszakupLot, mapGoszakupLots, parseGoszakupLotId } from './goszakup.mapper';
 import { DEFAULT_LIVE_LOTS_LIMIT, GOSZAKUP_MAX_LIMIT, GOSZAKUP_MIN_LIMIT } from './goszakup.config';
@@ -46,6 +47,10 @@ export class GoszakupLotSource implements LotSource {
       // show; it is reported as not found rather than padded with invented values.
       return mapGoszakupLot(record, { includeDocuments: true });
     });
+  }
+
+  fetchDocumentBytes(document: LotDocument): Promise<DocumentBytesResult> {
+    return this.client.fetchDocumentBytes(document.sourceUrl);
   }
 
   /** Upstream trouble is a source failure, not an empty or fixture-backed answer. */

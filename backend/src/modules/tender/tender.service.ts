@@ -4,6 +4,7 @@ import type { AssessedLot, AssessedLotDetail, LotFilters } from './lot';
 import { assessLot } from './lot-assessment';
 import { deriveLotTiming } from './lot-timing';
 import { evaluateLotActionability } from './lot-actionability';
+import { extractLotRequirements } from './lot-requirements';
 import {
   DEFAULT_LOT_SOURCE_MODE,
   LOT_SOURCE,
@@ -74,12 +75,22 @@ export class TenderService {
     if (!lot) throw new NotFoundException('Lot not found');
     const assessment = assessLot(lot);
     const timing = deriveLotTiming(lot, new Date());
+    const documents = lot.documents ?? [];
+    const requirements = await extractLotRequirements(documents, (doc) =>
+      this.source.fetchDocumentBytes
+        ? this.source.fetchDocumentBytes(doc)
+        : Promise.resolve({
+            status: 'UNAVAILABLE',
+            reason: 'не удалось безопасно получить байты файла из источника',
+          }),
+    );
     return {
       ...lot,
       assessment,
       timing,
       actionability: { status: evaluateLotActionability({ assessment, timing }) },
-      documents: lot.documents ?? [],
+      documents,
+      requirements,
     };
   }
 

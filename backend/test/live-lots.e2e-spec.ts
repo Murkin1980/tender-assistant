@@ -2,6 +2,7 @@ import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { createApp } from '../src/app';
 import { DEFAULT_LIVE_LOTS_LIMIT } from '../src/modules/tender/goszakup/goszakup.config';
+import { buildTextNativePdfBytes } from '../src/modules/tender/lot-requirements';
 import { LOT_FIXTURES } from '../src/modules/tender/lots.fixtures';
 import {
   GOSZAKUP_LOTS_QUERY,
@@ -64,7 +65,33 @@ interface UpstreamRequest {
   };
 }
 
+interface DocumentRequest {
+  url: string;
+  method: string;
+  authorization: string | null;
+}
+
 let upstreamRequests: UpstreamRequest[] = [];
+let documentRequests: DocumentRequest[] = [];
+
+const LIVE_DOC_BYTES: Readonly<Record<string, Uint8Array>> = {
+  'https://goszakup.gov.kz/files/download_file/500001/tech-spec.pdf': buildTextNativePdfBytes([
+    [
+      '1. Предмет закупки',
+      'Наименование товара: Столы письменные из ЛДСП',
+      'Количество: 6 штук',
+      'Габаритные размеры: 1200х600х750 мм',
+      'Материал изготовления: ЛДСП 16 мм класса Е1, кромка ПВХ 2 мм',
+    ],
+  ]),
+  'https://goszakup.gov.kz/files/download_file/500002/contract-draft.pdf': buildTextNativePdfBytes([
+    [
+      '1. Условия поставки',
+      'Место и срок поставки: г. Алматы, доставка и сборка в течение 15 календарных дней',
+      'Подтверждающие документы: сертификат соответствия ЕАЭС при поставке',
+    ],
+  ]),
+};
 
 const originalFetch = globalThis.fetch;
 const originalEnvironment = {
@@ -97,12 +124,28 @@ function registryLots(variables: UpstreamRequest['variables']): unknown {
 /** Records every registry call and answers it like the documented read-only endpoint would. */
 function stubRegistry(): void {
   upstreamRequests = [];
+  documentRequests = [];
   globalThis.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    const authorization = new Headers(init?.headers).get('authorization');
+    if (url !== UPSTREAM_URL) {
+      documentRequests.push({
+        url,
+        method: init?.method ?? 'GET',
+        authorization,
+      });
+      const bytes = LIVE_DOC_BYTES[url];
+      if (!bytes) return new Response('Not found', { status: 404 });
+      return new Response(Buffer.from(bytes), {
+        status: 200,
+        headers: { 'Content-Type': 'application/pdf' },
+      });
+    }
     const body = JSON.parse(String(init?.body ?? '{}')) as UpstreamRequest;
     upstreamRequests.push({
-      url: String(input),
+      url,
       method: init?.method ?? 'GET',
-      authorization: new Headers(init?.headers).get('authorization'),
+      authorization,
       query: body.query,
       variables: body.variables,
     });
@@ -194,6 +237,7 @@ describe('Live lots API with TENDER_LOT_SOURCE=goszakup', () => {
 
   beforeEach(() => {
     upstreamRequests = [];
+    documentRequests = [];
   });
 
   it('lists normalized live lots from one bounded registry request', async () => {
@@ -347,6 +391,8 @@ describe('Live lots API with TENDER_LOT_SOURCE=goszakup', () => {
   it('opens a listed lot through /lots/:id with a documented bounded id lookup', async () => {
     const list = await request(app.getHttpServer()).get('/api/v1/lots').expect(200);
     expect(list.body[0]).toEqual(LIVE_LOT);
+    // The list route never downloads documents or extracts requirements.
+    expect(documentRequests).toHaveLength(0);
 
     const detail = await request(app.getHttpServer())
       .get('/api/v1/lots/goszakup:900000001')
@@ -372,12 +418,66 @@ describe('Live lots API with TENDER_LOT_SOURCE=goszakup', () => {
           sourceUrl: 'https://goszakup.gov.kz/files/download_file/500002/contract-draft.pdf',
         },
       ],
+      requirements: {
+        status: 'AVAILABLE',
+        items: [
+          {
+            category: 'SUBJECT',
+            text: 'Наименование товара: Столы письменные из ЛДСП',
+            sourceDocumentId: '500001',
+            sourceLocator: 'Стр. 1',
+          },
+          {
+            category: 'QUANTITY',
+            text: 'Количество: 6 штук',
+            sourceDocumentId: '500001',
+            sourceLocator: 'Стр. 1',
+          },
+          {
+            category: 'DIMENSIONS',
+            text: 'Габаритные размеры: 1200х600х750 мм',
+            sourceDocumentId: '500001',
+            sourceLocator: 'Стр. 1',
+          },
+          {
+            category: 'MATERIAL',
+            text: 'Материал изготовления: ЛДСП 16 мм класса Е1, кромка ПВХ 2 мм',
+            sourceDocumentId: '500001',
+            sourceLocator: 'Стр. 1',
+          },
+          {
+            category: 'DELIVERY',
+            text: 'Место и срок поставки: г. Алматы, доставка и сборка в течение 15 календарных дней',
+            sourceDocumentId: '500002',
+            sourceLocator: 'Стр. 1',
+          },
+          {
+            category: 'SUPPORTING_DOCUMENT',
+            text: 'Подтверждающие документы: сертификат соответствия ЕАЭС при поставке',
+            sourceDocumentId: '500002',
+            sourceLocator: 'Стр. 1',
+          },
+        ],
+        warnings: [],
+      },
     });
     // The list read one bounded page; the detail read one record by id — nothing else.
     expect(upstreamRequests).toHaveLength(2);
     expect(upstreamRequests[0]?.query).toBe(GOSZAKUP_LOTS_QUERY);
     expect(upstreamRequests[1]?.query).toBe(GOSZAKUP_LOT_DETAIL_QUERY);
     expect(upstreamRequests[1]?.variables).toEqual({ filter: { id: [900000001] }, limit: 1 });
+    expect(documentRequests).toEqual([
+      {
+        url: 'https://goszakup.gov.kz/files/download_file/500001/tech-spec.pdf',
+        method: 'GET',
+        authorization: null,
+      },
+      {
+        url: 'https://goszakup.gov.kz/files/download_file/500002/contract-draft.pdf',
+        method: 'GET',
+        authorization: null,
+      },
+    ]);
     expect(detail.text).not.toContain(TOKEN);
   });
 
