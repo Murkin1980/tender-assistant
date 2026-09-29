@@ -1,6 +1,7 @@
 import { BadRequestException, Controller, Get, Param, Query } from '@nestjs/common';
-import type { AssessedLot, LotAssessmentStatus, LotFilters } from './lot';
+import type { AssessedLot, LotAssessmentStatus, LotFilters, LotTimingStatus } from './lot';
 import { LOT_ASSESSMENT_STATUSES } from './lot-assessment';
+import { LOT_TIMING_STATUSES } from './lot-timing';
 import type { LotSourceStatus } from './lot.source';
 import { TenderService } from './tender.service';
 
@@ -20,7 +21,14 @@ export class TenderController {
   @Get()
   async list(@Query() query: Record<string, unknown>): Promise<AssessedLot[]> {
     const filters: LotFilters = {};
-    for (const key of ['q', 'region', 'district', 'maxAmount', 'status'] as const) {
+    for (const key of [
+      'q',
+      'region',
+      'district',
+      'maxAmount',
+      'status',
+      'deadlineStatus',
+    ] as const) {
       const value = query[key];
       if (value === undefined) continue;
       if (typeof value !== 'string') throw new BadRequestException(`Invalid ${key}`);
@@ -37,6 +45,12 @@ export class TenderController {
           throw new BadRequestException('Invalid status');
         }
         filters.status = status;
+      } else if (key === 'deadlineStatus') {
+        const deadlineStatus = text.toUpperCase() as LotTimingStatus;
+        if (!LOT_TIMING_STATUSES.includes(deadlineStatus)) {
+          throw new BadRequestException('Invalid deadlineStatus');
+        }
+        filters.deadlineStatus = deadlineStatus;
       } else {
         filters[key] = text;
       }

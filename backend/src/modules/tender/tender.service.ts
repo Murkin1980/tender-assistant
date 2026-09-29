@@ -2,6 +2,7 @@ import { Inject, Injectable, NotFoundException, ServiceUnavailableException } fr
 import { ConfigService } from '@nestjs/config';
 import type { AssessedLot, LotFilters } from './lot';
 import { assessLot } from './lot-assessment';
+import { deriveLotTiming } from './lot-timing';
 import {
   DEFAULT_LOT_SOURCE_MODE,
   LOT_SOURCE,
@@ -30,6 +31,8 @@ export class TenderService {
 
   async list(filters: LotFilters): Promise<AssessedLot[]> {
     const lots = await this.fromSource(() => this.source.fetchLots(filters));
+    // The single place the current server time enters the timing derivation.
+    const now = new Date();
     return (
       lots
         .filter(
@@ -43,16 +46,24 @@ export class TenderService {
               )),
         )
         // The assessment is derived here, once, for every lot of every source.
-        .map((lot): AssessedLot => ({ ...lot, assessment: assessLot(lot) }))
-        // The status filter is local by design and is never part of what a source was asked for.
+        // The deadline state is derived the same way, by the same evaluator for fixtures and
+        // live records alike, so no source, adapter or controller repeats timing logic.
+        .map((lot): AssessedLot => ({
+          ...lot,
+          assessment: assessLot(lot),
+          timing: deriveLotTiming(lot, now),
+        }))
+        // Both status filters are local by design and are never part of what a source was asked
+        // for. The deadline filter runs after the timing it filters on exists.
         .filter((lot) => !filters.status || lot.assessment.status === filters.status)
+        .filter((lot) => !filters.deadlineStatus || lot.timing.status === filters.deadlineStatus)
     );
   }
 
   async get(id: string): Promise<AssessedLot> {
     const lot = await this.fromSource(() => this.source.fetchLot(id));
     if (!lot) throw new NotFoundException('Lot not found');
-    return { ...lot, assessment: assessLot(lot) };
+    return { ...lot, assessment: assessLot(lot), timing: deriveLotTiming(lot, new Date()) };
   }
 
   /** An unavailable live source is a safe temporary failure — never a fixture fallback. */

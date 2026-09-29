@@ -6,7 +6,10 @@ import {
   fetchLotsApi,
   lotAssessmentStatuses,
   lotQuery,
+  lotTimingStatuses,
+  timingLabel,
   type Lot,
+  type LotTimingStatus,
   type SearchParams,
 } from '../../lib/lots';
 
@@ -28,6 +31,12 @@ async function loadLots(query: URLSearchParams): Promise<ListResult> {
     return { status: 'unreachable', lots: [] };
   }
 }
+
+const TIMING_OPTIONS: Readonly<Record<LotTimingStatus, string>> = {
+  OPEN_BY_DEADLINE: 'Срок открыт',
+  DEADLINE_UNKNOWN: 'Срок не указан',
+  CLOSED_BY_DEADLINE: 'Срок истёк',
+};
 
 export default async function LotsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const query = lotQuery(await searchParams);
@@ -54,11 +63,17 @@ export default async function LotsPage({ searchParams }: { searchParams: Promise
         металлические шкафы нецелевые.
       </p>
       <p>
-        <Link href="/lots?maxAmount=500000&region=Алматы">Наш профиль</Link>
+        <Link href="/lots?maxAmount=500000&region=Алматы&deadlineStatus=OPEN_BY_DEADLINE">
+          Наш профиль
+        </Link>
       </p>
       <p className="triage-note">
         Статус — автоматический предварительный отбор по простым правилам. Финальное решение
         принимает оператор.
+      </p>
+      <p className="triage-note">
+        Срок — расчётное состояние по дате окончания приёма заявок, а не официальный статус закупки.
+        Тендеры с истёкшим сроком остаются в списке, пока не выбран фильтр по сроку.
       </p>
       <form action="/lots" method="get" className="lot-filters">
         <label>
@@ -101,6 +116,17 @@ export default async function LotsPage({ searchParams }: { searchParams: Promise
             ))}
           </select>
         </label>
+        <label>
+          Срок
+          <select name="deadlineStatus" defaultValue={query.get('deadlineStatus') ?? ''}>
+            <option value="">Все сроки</option>
+            {lotTimingStatuses.map((timing) => (
+              <option key={timing} value={timing}>
+                {TIMING_OPTIONS[timing]}
+              </option>
+            ))}
+          </select>
+        </label>
         <datalist id="districts">
           <option value="Алатауский" />
           <option value="Бостандыкский" />
@@ -127,6 +153,9 @@ export default async function LotsPage({ searchParams }: { searchParams: Promise
                 <p className="lot-heading">
                   <span className="triage-badge" data-status={lot.assessment.status}>
                     {lot.assessment.status}
+                  </span>
+                  <span className="timing-badge" data-timing={lot.timing.status}>
+                    {timingLabel(lot.timing)}
                   </span>
                   <strong>{amountLabel(lot.amount)}</strong>
                 </p>

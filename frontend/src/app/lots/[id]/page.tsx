@@ -6,6 +6,7 @@ import {
   deadlineLabel,
   fetchLotSourceStatus,
   fetchLotsApi,
+  timingLabel,
   type Lot,
   type LotSourceStatus,
 } from '../../../lib/lots';
@@ -118,13 +119,20 @@ export default async function LotPage({ params }: { params: Promise<{ id: string
             </dd>
             <dt>Приём заявок до</dt>
             <dd>
-              {lot.bidDeadline ? (
-                <time dateTime={lot.bidDeadline}>
-                  {deadlineLabel(lot.bidDeadline)} (Алматы, UTC+5)
-                </time>
+              {lot.timing.deadline ? (
+                <>
+                  <time dateTime={lot.timing.deadline}>
+                    {deadlineLabel(lot.timing.deadline)} (Алматы, UTC+5)
+                  </time>{' '}
+                  <span className="timing-badge" data-timing={lot.timing.status}>
+                    {timingLabel(lot.timing)}
+                  </span>
+                </>
               ) : (
                 // The registry does not publish a deadline for every selected lot.
-                'Срок не указан'
+                <span className="timing-badge" data-timing={lot.timing.status}>
+                  {timingLabel(lot.timing)}
+                </span>
               )}
             </dd>
             <dt>Способ закупки</dt>
@@ -132,6 +140,11 @@ export default async function LotPage({ params }: { params: Promise<{ id: string
             <dt>Официальный статус</dt>
             <dd>{lot.procurement.officialStatus ?? 'Не указано'}</dd>
           </dl>
+          <p className="triage-note">
+            Состояние срока рассчитано только из даты окончания приёма заявок и не является
+            официальным статусом закупки: официальный статус указан отдельным полем выше, а
+            первоисточником остаётся запись источника.
+          </p>
           <h2>Предмет закупки</h2>
           <p>{lot.description || 'Описание не указано.'}</p>
           <a href={lot.sourceUrl} target="_blank" rel="noopener noreferrer">

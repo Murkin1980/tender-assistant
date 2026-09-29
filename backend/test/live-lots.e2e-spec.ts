@@ -3,7 +3,40 @@ import request from 'supertest';
 import { createApp } from '../src/app';
 import { DEFAULT_LIVE_LOTS_LIMIT } from '../src/modules/tender/goszakup/goszakup.config';
 import { LOT_FIXTURES } from '../src/modules/tender/lots.fixtures';
-import { FULL_LOT, MINIMAL_LOT } from './fixtures/goszakup-lots.fixture';
+import type { GoszakupLotDto } from '../src/modules/tender/goszakup/goszakup-lots.query';
+import { FULL_LOT, MINIMAL_LOT, PAST_DEADLINE_LOT } from './fixtures/goszakup-lots.fixture';
+
+/**
+ * CP-09 needs a known instant to compare deadlines against, so this file fixes the clock to
+ * `2026-10-01T00:00:00.000Z`. Only `Date` is faked: every timer stays real, and the registry
+ * records keep their realistic dates instead of being anchored to the current date.
+ */
+const FIXED_NOW = new Date('2026-10-01T00:00:00.000Z');
+
+/** Everything except the clock is left alone, so no API behavior depends on the fake. */
+const REAL_TIMER_APIS = [
+  'hrtime',
+  'nextTick',
+  'performance',
+  'queueMicrotask',
+  'requestAnimationFrame',
+  'cancelAnimationFrame',
+  'requestIdleCallback',
+  'cancelIdleCallback',
+  'setImmediate',
+  'clearImmediate',
+  'setInterval',
+  'clearInterval',
+  'setTimeout',
+  'clearTimeout',
+] as const;
+
+beforeAll(() => {
+  jest.useFakeTimers({ now: FIXED_NOW, doNotFake: [...REAL_TIMER_APIS] });
+});
+afterAll(() => {
+  jest.useRealTimers();
+});
 
 /**
  * CP-05 guards for the user path of the live source (`TENDER_LOT_SOURCE=goszakup`):
@@ -49,9 +82,12 @@ const jsonResponse = (body: unknown, status = 200): Response =>
 /** Official `Query.Lots` answer for the request the backend actually sent. */
 function registryLots(variables: UpstreamRequest['variables']): unknown {
   const ids = variables.filter?.id;
-  const page = [FULL_LOT, MINIMAL_LOT];
-  if (!ids) return { data: { Lots: page } };
-  return { data: { Lots: page.filter((lot) => ids.includes(lot.id as number)) } };
+  // The bounded list read answers with the page; a bounded id lookup answers with its record.
+  const records: GoszakupLotDto[] = [FULL_LOT, MINIMAL_LOT, PAST_DEADLINE_LOT];
+  const page = ids
+    ? records.filter((lot) => ids.includes(lot.id as number))
+    : [FULL_LOT, MINIMAL_LOT];
+  return { data: { Lots: page } };
 }
 
 /** Records every registry call and answers it like the documented read-only endpoint would. */
@@ -99,6 +135,12 @@ const LIVE_LOT = {
       'Furniture signal found',
     ],
   },
+  // CP-09: derived from `TrdBuy.endDate` only — not from the official status of the record.
+  timing: {
+    status: 'OPEN_BY_DEADLINE',
+    deadline: '2026-10-20T12:00:00.000Z',
+    remainingMinutes: 28080,
+  },
 };
 
 const LIVE_LOT_WITHOUT_OPTIONAL_FIELDS = {
@@ -124,6 +166,8 @@ const LIVE_LOT_WITHOUT_OPTIONAL_FIELDS = {
     status: 'REVIEW',
     reasons: ['Amount is within 500,000 KZT', 'Insufficient evidence for automatic match'],
   },
+  // CP-09: the announcement carries no endDate, so the deadline state is unknown, not closed.
+  timing: { status: 'DEADLINE_UNKNOWN', deadline: null, remainingMinutes: null },
 };
 
 describe('Live lots API with TENDER_LOT_SOURCE=goszakup', () => {
@@ -185,6 +229,10 @@ describe('Live lots API with TENDER_LOT_SOURCE=goszakup', () => {
     [{ status: 'REVIEW' }, ['goszakup:900000002']],
     [{ status: 'EXCLUDE' }, []],
     [{ status: 'MATCH', maxAmount: '500000', region: 'Алматы' }, ['goszakup:900000001']],
+    // CP-09: the deadline state is derived locally and never reaches the registry.
+    [{ deadlineStatus: 'OPEN_BY_DEADLINE' }, ['goszakup:900000001']],
+    [{ deadlineStatus: 'DEADLINE_UNKNOWN' }, ['goszakup:900000002']],
+    [{ deadlineStatus: 'CLOSED_BY_DEADLINE' }, []],
   ])('applies the existing filters %j to the live page', async (query, ids) => {
     const response = await request(app.getHttpServer())
       .get('/api/v1/lots')
@@ -240,6 +288,51 @@ describe('Live lots API with TENDER_LOT_SOURCE=goszakup', () => {
         limit: DEFAULT_LIVE_LOTS_LIMIT,
       });
     }
+  });
+
+  it('derives the deadline state of live lots without pushing it to the registry', async () => {
+    const cases: ReadonlyArray<[string, string[]]> = [
+      ['OPEN_BY_DEADLINE', ['goszakup:900000001']],
+      ['DEADLINE_UNKNOWN', ['goszakup:900000002']],
+      ['CLOSED_BY_DEADLINE', []],
+    ];
+
+    for (const [deadlineStatus, ids] of cases) {
+      upstreamRequests = [];
+      const response = await request(app.getHttpServer())
+        .get('/api/v1/lots')
+        .query({ deadlineStatus })
+        .expect(200);
+      const lots = response.body as Array<{ id: string; timing: { status: string } }>;
+
+      expect(lots.map((lot) => lot.id)).toEqual(ids);
+      expect(lots.every((lot) => lot.timing.status === deadlineStatus)).toBe(true);
+      // One bounded page read; the deadline filter is local and never becomes an upstream filter.
+      expect(upstreamRequests).toHaveLength(1);
+      expect(upstreamRequests[0]?.variables).toEqual({
+        filter: null,
+        limit: DEFAULT_LIVE_LOTS_LIMIT,
+      });
+    }
+  });
+
+  it('reports CLOSED_BY_DEADLINE for a live record whose endDate has passed', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/api/v1/lots/goszakup:900000003')
+      .expect(200);
+
+    expect(response.body).toMatchObject({
+      id: 'goszakup:900000003',
+      bidDeadline: '2026-09-20T12:00:00.000Z',
+      timing: {
+        status: 'CLOSED_BY_DEADLINE',
+        deadline: '2026-09-20T12:00:00.000Z',
+        remainingMinutes: null,
+      },
+    });
+    // Still one bounded lookup by id — the expired record is read exactly like any other.
+    expect(upstreamRequests).toHaveLength(1);
+    expect(upstreamRequests[0]?.variables).toEqual({ filter: { id: [900000003] }, limit: 1 });
   });
 
   it('opens a listed lot through /lots/:id with a documented bounded id lookup', async () => {

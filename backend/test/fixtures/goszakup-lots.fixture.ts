@@ -41,6 +41,16 @@ export const MINIMAL_LOT: GoszakupLotDto = {
   amount: 500000,
 };
 
+/**
+ * CP-09: the same record with an announcement whose «Дата окончания приёма заявок» has already
+ * passed. It answers a bounded id lookup, so the bounded list page of CP-05 stays unchanged.
+ */
+export const PAST_DEADLINE_LOT: GoszakupLotDto = {
+  ...FULL_LOT,
+  id: 900000003,
+  TrdBuy: { ...FULL_LOT.TrdBuy, endDate: '2026-09-20T12:00:00Z' },
+};
+
 /** Records without a usable id/amount must be skipped instead of padded with placeholders. */
 export const UNUSABLE_LOTS: GoszakupLotDto[] = [
   // Malformed upstream records: the casts keep the intent explicit without weakening the DTO.
