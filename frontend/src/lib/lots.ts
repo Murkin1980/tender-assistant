@@ -12,6 +12,9 @@ export const lotTimingStatuses = [
 
 export type LotTimingStatus = (typeof lotTimingStatuses)[number];
 
+export const lotActionStatuses = ['TAKE', 'REVIEW', 'SKIP'] as const;
+export type LotActionStatus = (typeof lotActionStatuses)[number];
+
 /**
  * Mirrors the backend CP-07 assessment. The status and its reasons are produced server-side
  * from the normalized lot; the frontend only displays them and never re-derives them.
@@ -60,6 +63,7 @@ export interface Lot {
   procurement: LotProcurement;
   assessment: LotAssessment;
   timing: LotTiming;
+  actionability: { status: LotActionStatus };
 }
 
 export type SearchParams = Record<string, string | string[] | undefined>;
@@ -107,6 +111,12 @@ export function lotQuery(params: SearchParams): URLSearchParams {
   if (typeof deadlineStatus === 'string') {
     const candidate = deadlineStatus.trim().toUpperCase();
     if (isTimingStatus(candidate)) query.set('deadlineStatus', candidate);
+  }
+  const actionStatus = params.actionStatus;
+  if (typeof actionStatus === 'string') {
+    const candidate = actionStatus.trim().toUpperCase();
+    if ((lotActionStatuses as readonly string[]).includes(candidate))
+      query.set('actionStatus', candidate);
   }
   return query;
 }

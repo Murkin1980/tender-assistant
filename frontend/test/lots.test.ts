@@ -40,6 +40,7 @@ const lot: Lot = {
       'Preferred district: Alatau',
     ],
   },
+  actionability: { status: 'TAKE' },
   timing: {
     status: 'OPEN_BY_DEADLINE',
     deadline: '2026-10-15T12:00:00.000Z',
@@ -69,6 +70,7 @@ const unknownDeadlineLot: Lot = {
 
 const reviewLot: Lot = {
   ...lot,
+  actionability: { status: 'REVIEW' },
   id: 'api-review',
   district: null,
   assessment: {
@@ -79,6 +81,7 @@ const reviewLot: Lot = {
 
 const excludedLot: Lot = {
   ...lot,
+  actionability: { status: 'SKIP' },
   id: 'api-excluded',
   amount: 780000,
   assessment: {
@@ -176,6 +179,8 @@ describe('Lots server pages through the backend API', () => {
       'href="/lots/api-record"',
       'method="get"',
       'action="/lots"',
+      'name="actionStatus"',
+      'Брать в работу',
       'value="500000"',
       'value="ЛДСП"',
       'value="Алатауский"',
@@ -193,6 +198,9 @@ describe('Lots server pages through the backend API', () => {
       expect(html).toContain(`data-status="${status}"`);
       expect(html).toContain(`>${status}</span>`);
     }
+    expect(html).toContain('data-action="TAKE"');
+    expect(html).toContain('data-action="REVIEW"');
+    expect(html).toContain('data-action="SKIP"');
     expect(html).toContain(
       'Статус — автоматический предварительный отбор по простым правилам. Финальное решение принимает оператор.',
     );

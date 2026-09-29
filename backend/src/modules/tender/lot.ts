@@ -70,6 +70,7 @@ export interface LotTiming {
 
 /** Public lot response: the normalized lot plus its server-derived assessment and timing. */
 export interface AssessedLot extends Lot {
+  actionability: { status: import('./lot-actionability').LotActionStatus };
   assessment: LotAssessment;
   /** CP-09 deadline state, derived next to the assessment for every lot of every source. */
   timing: LotTiming;
@@ -84,4 +85,6 @@ export interface LotFilters {
   status?: LotAssessmentStatus;
   /** Public-only filter: applied after timing derivation, never pushed to a source. */
   deadlineStatus?: LotTimingStatus;
+  /** Public-only operator filter; always applied after derived actionability. */
+  actionStatus?: import('./lot-actionability').LotActionStatus;
 }

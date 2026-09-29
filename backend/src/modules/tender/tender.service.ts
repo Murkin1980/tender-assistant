@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import type { AssessedLot, LotFilters } from './lot';
 import { assessLot } from './lot-assessment';
 import { deriveLotTiming } from './lot-timing';
+import { evaluateLotActionability } from './lot-actionability';
 import {
   DEFAULT_LOT_SOURCE_MODE,
   LOT_SOURCE,
@@ -48,22 +49,35 @@ export class TenderService {
         // The assessment is derived here, once, for every lot of every source.
         // The deadline state is derived the same way, by the same evaluator for fixtures and
         // live records alike, so no source, adapter or controller repeats timing logic.
-        .map((lot): AssessedLot => ({
-          ...lot,
-          assessment: assessLot(lot),
-          timing: deriveLotTiming(lot, now),
-        }))
+        .map((lot): AssessedLot => {
+          const assessment = assessLot(lot);
+          const timing = deriveLotTiming(lot, now);
+          return {
+            ...lot,
+            assessment,
+            timing,
+            actionability: { status: evaluateLotActionability({ assessment, timing }) },
+          };
+        })
         // Both status filters are local by design and are never part of what a source was asked
         // for. The deadline filter runs after the timing it filters on exists.
         .filter((lot) => !filters.status || lot.assessment.status === filters.status)
         .filter((lot) => !filters.deadlineStatus || lot.timing.status === filters.deadlineStatus)
+        .filter((lot) => !filters.actionStatus || lot.actionability.status === filters.actionStatus)
     );
   }
 
   async get(id: string): Promise<AssessedLot> {
     const lot = await this.fromSource(() => this.source.fetchLot(id));
     if (!lot) throw new NotFoundException('Lot not found');
-    return { ...lot, assessment: assessLot(lot), timing: deriveLotTiming(lot, new Date()) };
+    const assessment = assessLot(lot);
+    const timing = deriveLotTiming(lot, new Date());
+    return {
+      ...lot,
+      assessment,
+      timing,
+      actionability: { status: evaluateLotActionability({ assessment, timing }) },
+    };
   }
 
   /** An unavailable live source is a safe temporary failure — never a fixture fallback. */

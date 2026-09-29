@@ -212,6 +212,27 @@ h1 {
   background: #fbeae7;
   color: #963326;
 }
+.action-badge {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 0.25rem 0.65rem;
+  font-weight: 700;
+  background: #eef2f7;
+  color: #263445;
+}
+.action-badge[data-action='TAKE'] {
+  background: #d8f3df;
+  color: #14532d;
+}
+.action-badge[data-action='REVIEW'] {
+  background: #fff1c2;
+  color: #713f12;
+}
+.action-badge[data-action='SKIP'] {
+  background: #fee2e2;
+  color: #7f1d1d;
+}
+
 .timing-badge {
   display: inline-block;
   padding: 2px 10px;
