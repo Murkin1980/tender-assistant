@@ -105,6 +105,7 @@ describe('Lots API', () => {
         procurementMethod: 'Запрос котировок (пример)',
         officialStatus: 'Приём заявок (пример)',
       },
+      actionability: { status: 'TAKE' },
       assessment: {
         status: 'MATCH',
         reasons: [
@@ -287,6 +288,9 @@ describe('Lots API', () => {
     [{ deadlineStatus: 'open_by_deadline' }, ['fixture-1', 'fixture-2', 'fixture-5']],
     [{ deadlineStatus: 'CLOSED_BY_DEADLINE' }, ['fixture-3', 'fixture-4']],
     [{ deadlineStatus: 'DEADLINE_UNKNOWN' }, ['fixture-6']],
+    [{ actionStatus: 'TAKE' }, ['fixture-1', 'fixture-2']],
+    [{ actionStatus: 'REVIEW' }, ['fixture-6']],
+    [{ actionStatus: 'SKIP' }, ['fixture-3', 'fixture-4', 'fixture-5']],
     [
       { deadlineStatus: 'OPEN_BY_DEADLINE', region: 'Алматы', maxAmount: '500000' },
       ['fixture-1', 'fixture-2', 'fixture-5'],
@@ -331,11 +335,21 @@ describe('Lots API', () => {
       expect(response.body).toEqual({ statusCode: 400, message: 'Invalid deadlineStatus' });
     },
   );
+  it('rejects an unknown operator action status', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/api/v1/lots?actionStatus=UNKNOWN')
+      .expect(400);
+    expect(response.body).toEqual({ statusCode: 400, message: 'Invalid actionStatus' });
+  });
+
   it('rejects repeated filters', async () => {
     await request(app.getHttpServer()).get('/api/v1/lots?q=a&q=b').expect(400);
     await request(app.getHttpServer()).get('/api/v1/lots?status=MATCH&status=REVIEW').expect(400);
     await request(app.getHttpServer())
       .get('/api/v1/lots?deadlineStatus=OPEN_BY_DEADLINE&deadlineStatus=DEADLINE_UNKNOWN')
+      .expect(400);
+    await request(app.getHttpServer())
+      .get('/api/v1/lots?actionStatus=TAKE&actionStatus=SKIP')
       .expect(400);
   });
   it('returns 404 for unknown ids', async () => {

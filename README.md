@@ -224,7 +224,9 @@ API:
 Контракт лота: `id`, `source`, `sourceUrl`, `title`, `customer`, `amount` (KZT),
 `region`, `district` (строка или null), `bidDeadline` (ISO-8601), `description`,
 а с CP-07 — производное `assessment` (см. раздел CP-07), с CP-08 — вложенный
-`procurement` (см. раздел CP-08), а с CP-09 — производное `timing` (см. раздел CP-09).
+`procurement` (см. раздел CP-08), с CP-09 — производное `timing` (см. раздел CP-09), а с CP-10 — `actionability: { status: 'TAKE' | 'REVIEW' | 'SKIP' }`.
+
+CP-10 объединяет только assessment и timing: EXCLUDE → SKIP; иначе CLOSED_BY_DEADLINE → SKIP; иначе REVIEW → REVIEW; иначе DEADLINE_UNKNOWN → REVIEW; MATCH + OPEN_BY_DEADLINE → TAKE; неизвестная комбинация → REVIEW. Список принимает локальный фильтр `actionStatus=TAKE|REVIEW|SKIP`, который никогда не передаётся Goszakup. Это внутренняя операторская рекомендация по настроенным правилам, не официальный статус закупки и не юридическое заключение; причины assessment и данные о сроке остаются источниками объяснения.
 Срок в карточке показывается по времени Алматы (UTC+5).
 
 Детерминированные записи находятся только в backend

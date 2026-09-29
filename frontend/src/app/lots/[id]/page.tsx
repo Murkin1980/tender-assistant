@@ -75,7 +75,17 @@ export default async function LotPage({ params }: { params: Promise<{ id: string
           <SourceNotice status={source} />
           <h1>{lot.title}</h1>
           <dl className="lot-details">
-            <dt>Статус</dt>
+            <dt>Рекомендация оператору</dt>
+            <dd>
+              <span className="action-badge" data-action={lot.actionability.status}>
+                {lot.actionability.status === 'TAKE'
+                  ? 'Брать в работу'
+                  : lot.actionability.status === 'REVIEW'
+                    ? 'Проверить'
+                    : 'Не брать'}
+              </span>
+            </dd>
+            <dt>Статус оценки профиля</dt>
             <dd>
               <span className="triage-badge" data-status={lot.assessment.status}>
                 {lot.assessment.status}
@@ -99,6 +109,10 @@ export default async function LotPage({ params }: { params: Promise<{ id: string
             <dt>Район</dt>
             <dd>{lot.district ?? 'Не указан'}</dd>
           </dl>
+          <p className="triage-note">
+            Внутренняя операционная рекомендация по настроенным правилам; не является официальным
+            статусом закупки или юридическим заключением о соответствии.
+          </p>
           <h2>Данные закупки</h2>
           <dl className="lot-details">
             <dt>Номер лота</dt>

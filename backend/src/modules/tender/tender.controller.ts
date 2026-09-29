@@ -1,5 +1,6 @@
 import { BadRequestException, Controller, Get, Param, Query } from '@nestjs/common';
 import type { AssessedLot, LotAssessmentStatus, LotFilters, LotTimingStatus } from './lot';
+import { LOT_ACTION_STATUSES, type LotActionStatus } from './lot-actionability';
 import { LOT_ASSESSMENT_STATUSES } from './lot-assessment';
 import { LOT_TIMING_STATUSES } from './lot-timing';
 import type { LotSourceStatus } from './lot.source';
@@ -28,6 +29,7 @@ export class TenderController {
       'maxAmount',
       'status',
       'deadlineStatus',
+      'actionStatus',
     ] as const) {
       const value = query[key];
       if (value === undefined) continue;
@@ -51,6 +53,12 @@ export class TenderController {
           throw new BadRequestException('Invalid deadlineStatus');
         }
         filters.deadlineStatus = deadlineStatus;
+      } else if (key === 'actionStatus') {
+        const actionStatus = text.toUpperCase() as LotActionStatus;
+        if (!LOT_ACTION_STATUSES.includes(actionStatus)) {
+          throw new BadRequestException('Invalid actionStatus');
+        }
+        filters.actionStatus = actionStatus;
       } else {
         filters[key] = text;
       }

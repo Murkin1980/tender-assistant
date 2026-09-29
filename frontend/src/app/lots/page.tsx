@@ -5,6 +5,7 @@ import {
   fetchLotSourceStatus,
   fetchLotsApi,
   lotAssessmentStatuses,
+  lotActionStatuses,
   lotQuery,
   lotTimingStatuses,
   timingLabel,
@@ -127,6 +128,21 @@ export default async function LotsPage({ searchParams }: { searchParams: Promise
             ))}
           </select>
         </label>
+        <label>
+          Действие
+          <select name="actionStatus" defaultValue={query.get('actionStatus') ?? ''}>
+            <option value="">Все действия</option>
+            {lotActionStatuses.map((action) => (
+              <option key={action} value={action}>
+                {action === 'TAKE'
+                  ? 'Брать в работу'
+                  : action === 'REVIEW'
+                    ? 'Проверить'
+                    : 'Не брать'}
+              </option>
+            ))}
+          </select>
+        </label>
         <datalist id="districts">
           <option value="Алатауский" />
           <option value="Бостандыкский" />
@@ -151,6 +167,13 @@ export default async function LotsPage({ searchParams }: { searchParams: Promise
                   <Link href={`/lots/${encodeURIComponent(lot.id)}`}>{lot.title}</Link>
                 </h2>
                 <p className="lot-heading">
+                  <span className="action-badge" data-action={lot.actionability.status}>
+                    {lot.actionability.status === 'TAKE'
+                      ? 'Брать в работу'
+                      : lot.actionability.status === 'REVIEW'
+                        ? 'Проверить'
+                        : 'Не брать'}
+                  </span>
                   <span className="triage-badge" data-status={lot.assessment.status}>
                     {lot.assessment.status}
                   </span>

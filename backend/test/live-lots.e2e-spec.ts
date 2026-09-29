@@ -126,6 +126,7 @@ const LIVE_LOT = {
     officialStatus: 'Приём заявок (пример)',
   },
   // The registry never supplies a district, so Alatau can only stay a preference for live lots.
+  actionability: { status: 'TAKE' },
   assessment: {
     status: 'MATCH',
     reasons: [
@@ -162,6 +163,7 @@ const LIVE_LOT_WITHOUT_OPTIONAL_FIELDS = {
     procurementMethod: null,
     officialStatus: null,
   },
+  actionability: { status: 'REVIEW' },
   assessment: {
     status: 'REVIEW',
     reasons: ['Amount is within 500,000 KZT', 'Insufficient evidence for automatic match'],
@@ -233,6 +235,9 @@ describe('Live lots API with TENDER_LOT_SOURCE=goszakup', () => {
     [{ deadlineStatus: 'OPEN_BY_DEADLINE' }, ['goszakup:900000001']],
     [{ deadlineStatus: 'DEADLINE_UNKNOWN' }, ['goszakup:900000002']],
     [{ deadlineStatus: 'CLOSED_BY_DEADLINE' }, []],
+    [{ actionStatus: 'TAKE' }, ['goszakup:900000001']],
+    [{ actionStatus: 'REVIEW' }, ['goszakup:900000002']],
+    [{ actionStatus: 'SKIP' }, []],
   ])('applies the existing filters %j to the live page', async (query, ids) => {
     const response = await request(app.getHttpServer())
       .get('/api/v1/lots')
