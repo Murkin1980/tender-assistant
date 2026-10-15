@@ -1,0 +1,30 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "tender-assistant-api",
+  "main": "worker-entry.mjs",
+  "compatibility_date": "2026-10-15",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "upload_source_maps": true,
+  "alias": {
+    "class-validator": "./dist/worker-empty.js",
+    "class-transformer": "./dist/worker-empty.js",
+    "@nestjs/websockets/socket-module": "./dist/worker-empty.js",
+    "@nestjs/microservices/microservices-module": "./dist/worker-empty.js",
+    "@nestjs/microservices": "./dist/worker-empty.js"
+  },
+  "vars": {
+    "NODE_ENV": "production",
+    "PORT": "3000",
+    "CORS_ORIGIN": "https://tender.salamat-mebel.kz",
+    "TENDER_LOT_SOURCE": "goszakup"
+  },
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "invocation_logs": true
+    }
+  }
+}

@@ -600,6 +600,41 @@ requirements: {
 
 ## CP-13: production runtime и live release path
 
+### Предпочтительный Cloudflare runtime
+
+Feasibility gate 2026-10-16 выбрал **Cloudflare Workers**, а не Pages и не hybrid origin:
+
+- `tender-assistant-web` запускает существующий Next.js 16 App Router через официальный
+  OpenNext adapter и Workers Static Assets;
+- `tender-assistant-api` запускает существующий NestJS/Express backend через поддерживаемый
+  `cloudflare:node` HTTP bridge; основной backend и CP-12 parser не переписаны;
+- frontend обращается к backend только через private Workers service binding `BACKEND`.
+  Backend не имеет `workers.dev`, preview URL или отдельного custom domain;
+- `node:zlib`, Buffer/Node streams, outbound `fetch` и `process.env` работают через
+  `nodejs_compat`. Bounds остаются 5 MiB на документ и 10 MiB на распакованный stream/XML при
+  лимите Workers 128 MiB. Для production нужен Workers Paid: Free CPU 10 ms недостаточен для
+  SSR и синхронного PDF/DOCX parsing; Paid даёт 30 s по умолчанию (до 5 min);
+- Pages не выбран: текущий Cloudflare path для full-stack Next.js SSR/RSC/route handlers —
+  Workers/OpenNext. Внешний backend не нужен, поэтому hybrid path не используется.
+
+Конфигурация находится в `backend/wrangler.jsonc` и `frontend/wrangler.jsonc`.
+`TENDER_LOT_SOURCE=goszakup` задан только backend. `GOSZAKUP_TOKEN` создаётся только как
+Cloudflare secret (`wrangler secret put`); его нет в Git, frontend, URL или текстовых vars.
+Custom domain frontend — `https://tender.salamat-mebel.kz`; backend остаётся private service.
+До live acceptance на весь hostname требуется Cloudflare Access.
+
+`deploy/deploy-cloudflare.sh` проверяет чистый checkout и наличие секрета, собирает оба runtime,
+помечает Worker versions полным git SHA и deploy'ит backend перед frontend.
+`deploy/rollback-cloudflare.sh <backend-version-id> <frontend-version-id>` выполняет version
+rollback; затем текущий SHA повторно deploy'ится обычным deploy script.
+
+На 2026-10-16 локальный workerd smoke доказал boot NestJS и ответы `health=200`, `ready=200`,
+`source=goszakup` с sentinel secret; это не production/live evidence. В доступном окружении нет
+`GOSZAKUP_TOKEN`, поэтому production deploy, Access, real live list/detail/documents/requirements
+smoke, log leak audit и rollback/redeploy ещё не заявляются.
+
+### Сохранённый GCE/Docker fallback
+
 ### Решение по hosting target
 
 Минимальный target для существующих Docker-образов: **одна GCP Compute Engine VM с Ubuntu LTS**, Docker Engine/Compose v2 и один Compose stack (`backend`, `frontend`, `edge`). Для старта достаточно VM порядка 2 vCPU / 4–8 GiB RAM и 30 GiB диска; конкретный machine type, регион и стоимость должен подтвердить владелец GCP-проекта до создания ресурсов. Это продолжает уже описанный в `gcp-server-setup.md` вариант GCE VM и не меняет Node/Nest/Next архитектуру. VM создаётся вручную в существующем GCP project; зарезервировать static IPv4 для DNS, разрешить входящие TCP `80/443`, а SSH `22` ограничить IP оператора. Не открывать host-порты `3000/3001`; Cloud SQL/GCS/дополнительные сервисы не нужны.
