@@ -617,7 +617,7 @@ requirements: {
 - `deploy/production/production.env.example` — шаблон для файла вне checkout `/etc/tender-assistant/production.env`, права `0600`. В нём только origin/domain, контакт ACME, operator username, **bcrypt hash** пароля (оставить в single quotes, чтобы Compose не интерполировал `$` в bcrypt hash) и путь к токену.
 - Сам Goszakup token хранится отдельно в `/etc/tender-assistant/secrets/goszakup_token` с правами `0600`; Compose монтирует его только backend как `/run/secrets/goszakup_token`. Backend читает секрет через `GOSZAKUP_TOKEN_FILE`. Production не задаёт значение `GOSZAKUP_TOKEN` в env и не передаёт Goszakup env во frontend.
 - Hash пароля генерируется интерактивно, без передачи plaintext в аргументах:
-  `docker run --rm -it caddy:2.10.2-alpine hash-password`.
+  `docker run --rm -it caddy:2.10.2-alpine caddy hash-password`.
 - Compose production не печатает разрешённую конфигурацию при deploy (`config --quiet`); deploy/smoke scripts не читают содержимое Goszakup secret и не печатают operator password.
 
 ### Health, deployment и rollback

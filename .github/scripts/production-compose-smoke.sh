@@ -107,14 +107,13 @@ NODE
 printf 'Production Compose security/configuration contract passed.\n'
 # Parse the Caddyfile using the pinned runtime image. Capture output so credentials/config are not
 # dumped into CI logs if validation fails; the file contains only synthetic test values here.
-if ! compose run --rm --no-deps edge validate --config /etc/caddy/Caddyfile --adapter caddyfile \
+if ! compose run --rm --no-deps edge caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile \
   >"$CADDY_LOG" 2>&1; then
   if grep -Fq "$SECRET_SENTINEL" "$CADDY_LOG"; then
     printf '::error::Synthetic Goszakup token appeared in Caddy validation output.\n' >&2
     exit 1
   fi
   printf '::error::Caddy configuration validation failed. Synthetic-only diagnostic follows.\n'
-  printf '::error::Caddy raw output base64: %s\n' "$(base64 -w0 "$CADDY_LOG")"
   line=''
   while IFS= read -r line || [[ -n "$line" ]]; do
     printf '::error::Caddy validation: %s\n' "$line"
