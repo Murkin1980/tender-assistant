@@ -27,7 +27,7 @@ chmod 600 "$ENV_FILE"
 
 compose() {
   RELEASE_SHA=0123456789abcdef0123456789abcdef01234567 docker compose \
-    --progress plain \
+    --progress quiet \
     --project-name tender-assistant-cp13-check \
     --env-file "$ENV_FILE" \
     --file "$COMPOSE_FILE" \
