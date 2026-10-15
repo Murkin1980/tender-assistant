@@ -27,6 +27,7 @@ chmod 600 "$ENV_FILE"
 
 compose() {
   RELEASE_SHA=0123456789abcdef0123456789abcdef01234567 docker compose \
+    --progress plain \
     --project-name tender-assistant-cp13-check \
     --env-file "$ENV_FILE" \
     --file "$COMPOSE_FILE" \
@@ -115,7 +116,7 @@ if ! compose run --rm --no-deps edge validate --config /etc/caddy/Caddyfile --ad
   printf '::error::Caddy configuration validation failed. Synthetic-only diagnostic follows.\n'
   while IFS= read -r line; do
     printf '::error::Caddy validation: %s\n' "$line"
-  done <"$CADDY_LOG"
+  done < <(tr '\r' '\n' <"$CADDY_LOG")
   exit 1
 fi
 if grep -Fq "$SECRET_SENTINEL" "$CADDY_LOG"; then
