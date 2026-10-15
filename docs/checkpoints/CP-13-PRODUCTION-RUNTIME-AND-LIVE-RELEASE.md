@@ -1,6 +1,6 @@
 # CP-13 — Production runtime and live release path
 
-Status: APPROVED FOR IMPLEMENTATION
+Status: PARTIAL — runtime/release path implemented; production rollout blocked pending owner-provisioned GCP VM/domain and Goszakup token
 
 ## New Idea Filter
 

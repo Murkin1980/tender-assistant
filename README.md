@@ -22,7 +22,7 @@ tender-assistant/
 ## Документы проекта
 
 - [Техническая спецификация](tender-assistant-spec.md)
-- [Инструкция по настройке инфраструктуры GCP](gcp-server-setup.md)
+- [Legacy-инструкция по GCP (не использовать для CP-13)](gcp-server-setup.md)
 
 ## Local development
 
@@ -141,7 +141,7 @@ CORS_ORIGIN=https://app.example.com,https://admin.example.com
 
 - **Триггеры:** `pull_request` в `main`, `push` в `main` и вручную через `workflow_dispatch`.
 - **Job `quality`** на GitHub-hosted Ubuntu runner: воспроизводимая установка зависимостей `pnpm install --frozen-lockfile` (Node.js читается из `.nvmrc`, pnpm — из `packageManager` в `package.json`, с кэшированием зависимостей через `actions/setup-node`), затем строго по порядку `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm test:e2e` и `pnpm build`. Ошибка любой команды падает весь workflow.
-- **Job `docker-smoke`** запускается после `quality` на GitHub-hosted Ubuntu runner: проверяет `docker compose config`, собирает и запускает контейнеры через `docker compose up --build -d`, bounded retry loop'ом (до 60 секунд на сервис) дожидается readiness и проверяет backend `http://localhost:3000/api/v1/health` и frontend Route Handler/proxy `http://localhost:3001/api/v1/health`, включая валидацию JSON-тела (`status`, `service`, ISO-8601 `timestamp`) без внешних зависимостей вроде `jq`.
+- **Job `docker-smoke`** запускается после `quality` на GitHub-hosted Ubuntu runner: проверяет обычный `docker compose config`, отдельно валидирует production Compose и Caddy на временном синтетическом token, собирает и запускает fixture-backed контейнеры, bounded retry loop'ом (до 60 секунд на сервис) дожидается liveness и readiness и проверяет frontend/backend JSON-контракты без внешних зависимостей вроде `jq`.
 - При ошибке запуска или healthcheck workflow печатает `docker compose ps` и последние 200 строк логов обоих контейнеров.
 - Cleanup `docker compose down -v --remove-orphans` выполняется отдельным шагом всегда (`if: always()`), независимо от успеха или падения smoke-test.
 - В CI нет secrets, deployment-шагов и публикации Docker images; workflow работает без secrets и с read-only правами (`permissions: contents: read`), устаревшие запуски одной ветки/PR отменяются через `concurrency` + `cancel-in-progress: true`.
@@ -175,12 +175,15 @@ docker compose down -v --remove-orphans
   backend с ошибкой `TENDER_LOT_SOURCE must be one of: fixture | goszakup`. Источник выбирает
   только backend: параметром запроса браузер его не переключает.
 - `backend/.env.example` также содержит переменные Goszakup: `GOSZAKUP_TOKEN` (пустой по
-  умолчанию; обязателен только для `TENDER_LOT_SOURCE=goszakup`), `GOSZAKUP_GRAPHQL_URL`
-  (по умолчанию официальный `https://ows.goszakup.gov.kz/v3/graphql`) и `GOSZAKUP_TIMEOUT_MS`
-  (по умолчанию 15000). Локальный запуск без секретов всегда fixture-backed.
+  умолчанию; обязателен только для `TENDER_LOT_SOURCE=goszakup`), `GOSZAKUP_TOKEN_FILE`,
+  `GOSZAKUP_GRAPHQL_URL` (по умолчанию официальный `https://ows.goszakup.gov.kz/v3/graphql`) и
+  `GOSZAKUP_TIMEOUT_MS` (по умолчанию 15000). Локальный запуск без секретов всегда fixture-backed.
+  Для production используется только Docker secret-файл (`GOSZAKUP_TOKEN_FILE`), не значение
+  токена в переменной контейнера.
 - `frontend/.env.example` — `BACKEND_INTERNAL_URL`, доступный только server-side Route Handler.
 - Реальные `.env` и `.env.local` не должны коммититься. Реальный `GOSZAKUP_TOKEN` нельзя
-  коммитить, печатать в логах или передавать во frontend.
+  коммитить, печатать в логах или передавать во frontend. Production CORS задаётся точным
+  HTTPS origin из `APP_ORIGIN`; wildcard запрещён.
 
 ## Ограничение проверки Docker
 
@@ -192,6 +195,8 @@ docker compose build
 docker compose up -d
 curl --fail http://localhost:3000/api/v1/health
 curl --fail http://localhost:3001/api/v1/health
+curl --fail http://localhost:3000/api/v1/ready
+curl --fail http://localhost:3001/api/v1/ready
 docker compose down -v
 ```
 
@@ -199,7 +204,7 @@ docker compose down -v
 
 ## Scope bootstrap-окружения
 
-Текущий increment намеренно не содержит авторизацию, пользователей и организации, базу данных, очереди, object storage, обработку документов, OCR, RAG, LLM SDK и облачную инфраструктуру.
+Само приложение CP-03…CP-12 не содержит пользователей/организаций, БД, очередей, object storage, OCR, RAG или LLM SDK. CP-13 добавляет только внешний operator Basic Auth на TLS edge proxy для private runtime; это не аккаунты приложения и не multi-user авторизация.
 
 ## CP-03: список → фильтры → карточка
 
@@ -593,3 +598,67 @@ requirements: {
 - В системе нет OCR, LLM, embeddings, RAG, векторных или реляционных БД, object storage и фоновой индексации.
 - На странице `/lots/[id]` блок «Требования» отображает статус (`AVAILABLE`, `PARTIAL`, `UNAVAILABLE`), сгруппированные по категориям требования с указанием документа-источника и локатора, а также блок «Нужно проверить вручную», явно отделяя извлечённые факты источника от операторской рекомендации.
 
+## CP-13: production runtime и live release path
+
+### Решение по hosting target
+
+Минимальный target для существующих Docker-образов: **одна GCP Compute Engine VM с Ubuntu LTS**, Docker Engine/Compose v2 и один Compose stack (`backend`, `frontend`, `edge`). Для старта достаточно VM порядка 2 vCPU / 4–8 GiB RAM и 30 GiB диска; конкретный machine type, регион и стоимость должен подтвердить владелец GCP-проекта до создания ресурсов. Это продолжает уже описанный в `gcp-server-setup.md` вариант GCE VM и не меняет Node/Nest/Next архитектуру. VM создаётся вручную в существующем GCP project; зарезервировать static IPv4 для DNS, разрешить входящие TCP `80/443`, а SSH `22` ограничить IP оператора. Не открывать host-порты `3000/3001`; Cloud SQL/GCS/дополнительные сервисы не нужны.
+
+- Caddy `2.10.2` — единственный опубликованный edge: TLS/HTTPS (ACME) и HTTP Basic Auth для одного оператора; Basic Auth является внешним входом, не учётной записью приложения. `Authorization` удаляется перед проксированием во frontend.
+- Публичные host-порты только `80/443` на edge. Backend и Next.js frontend не публикуют host-порты; Next server-side ходит к `http://backend:3000` внутри `backend_net`. Edge находится в отдельной `edge_net` и не подключён напрямую к backend.
+- Отдельного публичного backend URL нет и не требуется. Внутренняя backend URL: `http://backend:3000`; production CORS ограничен ровно `APP_ORIGIN=https://<APP_DOMAIN>` без `*`.
+- Goszakup OWS включён неизменно в production Compose через `TENDER_LOT_SOURCE=goszakup`. Caddy автоматически выпускает/обновляет TLS-сертификат, когда DNS `A`/`AAAA` указывает на VM и входящие `80/443` доступны.
+- CP-13 намеренно не использует текущие `infra/terraform`: конфигурация создаёт Cloud SQL, GCS и дополнительные IAM/firewall ресурсы, включая БД/хранилище, запрещённые scope CP-13. Старые GCP-setup инструкции — исторические; для CP-13 не создавать БД, bucket или очереди.
+
+**Фактические production URL на дату CP-13:** frontend — **не provisioned / URL отсутствует**; backend — **публичного URL нет**, только Compose DNS `http://backend:3000` (пока runtime не provisioned). Домен, VM/GCP project и Goszakup token в рабочем окружении не предоставлены, поэтому не подменяем их фиктивным `app.example.com` и не заявляем production rollout.
+
+### Production secrets и private access
+
+- `deploy/production/production.env.example` — шаблон для файла вне checkout `/etc/tender-assistant/production.env`, права `0600`. В нём только origin/domain, контакт ACME, operator username, **bcrypt hash** пароля (оставить в single quotes, чтобы Compose не интерполировал `$` в bcrypt hash) и путь к токену.
+- Сам Goszakup token хранится отдельно в `/etc/tender-assistant/secrets/goszakup_token` с правами `0600`; Compose монтирует его только backend как `/run/secrets/goszakup_token`. Backend читает секрет через `GOSZAKUP_TOKEN_FILE`. Production не задаёт значение `GOSZAKUP_TOKEN` в env и не передаёт Goszakup env во frontend.
+- Hash пароля генерируется интерактивно, без передачи plaintext в аргументах:
+  `docker run --rm -it caddy:2.10.2-alpine hash-password`.
+- Compose production не печатает разрешённую конфигурацию при deploy (`config --quiet`); deploy/smoke scripts не читают содержимое Goszakup secret и не печатают operator password.
+
+### Health, deployment и rollback
+
+- `GET /api/v1/health` — liveness. `GET /api/v1/ready` — readiness: для выбранного `goszakup` проверяет наличие server-side token, но не обращается к OWS и не возвращает token/его значение. Frontend имеет same-origin readiness proxy; Compose healthchecks ожидают backend и frontend readiness.
+- Повторяемый runbook и Compose: `deploy/production/compose.yml`, `deploy/production/Caddyfile`, `deploy/deploy-production.sh`. После provision VM, DNS, Docker Compose plugin, external env/secret files и выпуска operator hash:
+  1. взять чистый checkout проверенного полного commit SHA;
+  2. создать `/etc/tender-assistant/production.env` из example, указав совпадающие `APP_DOMAIN` и `APP_ORIGIN`, operator username/hash и внешний `GOSZAKUP_TOKEN_FILE`;
+  3. создать token-файл вне репозитория с правами `0600`;
+  4. запустить `./deploy/deploy-production.sh`.
+
+  Пример безопасной подготовки файлов от имени deployment user (в Docker group):
+
+  ```bash
+  sudo install -d -o "$(id -un)" -g "$(id -gn)" -m 0700 /etc/tender-assistant/secrets
+  cp deploy/production/production.env.example /etc/tender-assistant/production.env
+  chmod 0600 /etc/tender-assistant/production.env
+  install -m 0600 /dev/null /etc/tender-assistant/secrets/goszakup_token
+  read -r -s -p 'Goszakup OWS token: ' token; printf '\n'
+  printf '%s' "$token" > /etc/tender-assistant/secrets/goszakup_token
+  unset token
+  ```
+
+  Сгенерированный Caddy bcrypt hash записать в `OPERATOR_PASSWORD_HASH` (single-quoted), заполнить домен/origin и ACME email; plaintext operator password и OWS token не помещать в Compose env.
+
+  Скрипт отказывает при dirty checkout, секретах внутри repo или небезопасных правах, строит backend/frontend image с tag полного git SHA, ждёт healthchecks и требует получить `401` для анонимного HTTPS `/lots`. Для operator-проверки из списка `/lots` выбрать опубликованный лот с официальным text-native PDF/DOCX, извлечёнными требованиями, затем выполнить:
+
+  ```bash
+  export PRODUCTION_ORIGIN=https://<APP_DOMAIN>
+  export OPERATOR_USERNAME=<operator>
+  export SMOKE_LOT_ID=goszakup:<id-from-live-list>
+  ./deploy/smoke-production.sh
+  ```
+
+  Скрипт запросит пароль интерактивно; проверит anonymous `401` → authenticated `/api/v1/ready` → LIVE `/lots` → выбранный detail → ссылку на официальный Goszakup документ → requirement item с документом и source locator. Он не принимает Goszakup token. Для каждого изменения source/release оставить production URL, полный SHA, время smoke и выбранный lot ID в deployment evidence.
+- Rollback к сохранённому image SHA: `./deploy/deploy-production.sh --rollback <previous-full-40-character-sha>`. Скрипт использует ранее собранные локальные images (`--no-build`), ждёт readiness и повторяет HTTPS/private-access `401`. Не запускать `docker image prune` для предыдущего release до окончания окна rollback. Для отката Compose/Caddy конфигурации сначала переключить чистый checkout на её известный рабочий commit. Caddy ACME volume и внешние секреты при rollback сохраняются.
+
+### Проверки и production evidence
+
+- CI дополнительно валидирует production Compose/Caddy на синтетическом временном token: Goszakup secret не отображается в `docker compose config`, присутствует только у backend, frontend/backend не публикуют порты, CORS точный HTTPS origin, Caddy basic-auth/TLS config парсится.
+- Regression tests используют sentinel token и проверяют, что upstream URL остаётся без токена, official document GET не получает Authorization, API/readiness/probe responses и probe/error messages не содержат токен. Frontend production runtime получает только `BACKEND_INTERNAL_URL`; Docker secret подключён исключительно к backend.
+- Docker smoke в CI остаётся отдельным fixture-backed local smoke; он не считается live production evidence. Локальная среда выполнения CP-13 не имеет Docker Engine, GCP/gcloud credentials, provisioned VM/domain или Goszakup token. Поэтому deployment, production health по реальному URL, live Goszakup/documents/requirements smoke и реальный rollback здесь **не выполнены**; для первого запуска нужна owner-provisioned GCE VM/domain и отдельный OWS token. Синтетический Compose validation и unit/e2e проверки не подменяют этот production gate.
+
+CP-13 не меняет продуктовые контракты CP-03…CP-12 и не добавляет DB, saved tenders, profiles, scheduler/search, notifications, OCR, AI/LLM/RAG или второй источник.

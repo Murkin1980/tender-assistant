@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+
 import {
   DEFAULT_GOSZAKUP_GRAPHQL_URL,
   DEFAULT_GOSZAKUP_TIMEOUT_MS,
@@ -64,13 +66,27 @@ function parseGoszakupTimeoutMs(value: string | undefined): number {
   return timeoutMs;
 }
 
+function readGoszakupToken(): string {
+  const tokenFile = process.env.GOSZAKUP_TOKEN_FILE?.trim();
+  if (tokenFile) {
+    try {
+      return readFileSync(tokenFile, 'utf8').trim();
+    } catch {
+      // Do not include the path or filesystem error: deployments may choose a sensitive path.
+      throw new Error('GOSZAKUP_TOKEN_FILE could not be read');
+    }
+  }
+
+  return process.env.GOSZAKUP_TOKEN?.trim() ?? '';
+}
+
 export interface GoszakupConfig {
   graphqlUrl: string;
   timeoutMs: number;
   /**
    * Optional read-only OWS v3 bearer token. Empty means "no live access"; when the live source is
-   * selected such a request fails safely instead of falling back to fixtures. It is read from the
-   * environment only and is never part of any API response.
+   * selected such a request fails safely instead of falling back to fixtures. Production reads a
+   * mounted secret through GOSZAKUP_TOKEN_FILE; the token is never part of an API response.
    */
   token: string;
 }
@@ -106,7 +122,7 @@ export default function configuration(): {
     goszakup: {
       graphqlUrl: parseGoszakupGraphqlUrl(process.env.GOSZAKUP_GRAPHQL_URL),
       timeoutMs: parseGoszakupTimeoutMs(process.env.GOSZAKUP_TIMEOUT_MS),
-      token: process.env.GOSZAKUP_TOKEN?.trim() ?? '',
+      token: readGoszakupToken(),
     },
   };
 }
