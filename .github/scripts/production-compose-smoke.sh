@@ -15,14 +15,14 @@ CONFIG_FILE="${TMP_DIR}/compose.json"
 CADDY_LOG="${TMP_DIR}/caddy-validate.log"
 printf '%s' "$SECRET_SENTINEL" >"$TOKEN_FILE"
 chmod 600 "$TOKEN_FILE"
-cat >"$ENV_FILE" <<EOF
+cat >"$ENV_FILE" <<'EOF'
 APP_DOMAIN=app.example.test
 APP_ORIGIN=https://app.example.test
 ACME_EMAIL=operator@example.test
 OPERATOR_USERNAME=operator
 OPERATOR_PASSWORD_HASH='$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'
-GOSZAKUP_TOKEN_FILE=${TOKEN_FILE}
 EOF
+printf 'GOSZAKUP_TOKEN_FILE=%s\n' "$TOKEN_FILE" >>"$ENV_FILE"
 chmod 600 "$ENV_FILE"
 
 compose() {
