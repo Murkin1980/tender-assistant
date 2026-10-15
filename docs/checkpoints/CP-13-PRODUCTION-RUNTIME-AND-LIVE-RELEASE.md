@@ -39,3 +39,10 @@ Before implementation, re-read `docs/roadmap/PRODUCT-READINESS-ROADMAP-2026-10-1
 Promote this checkpoint to APPROVED FOR IMPLEMENTATION only after explicit owner instruction.
 
 Use one bounded Arena branch and one PR. Do not begin the next checkpoint. Do not merge without owner authority.
+
+## Implementation evidence (2026-10-15)
+
+- **Automated checks: PASS.** [GitHub Actions run #13](https://github.com/Murkin1980/tender-assistant/actions/runs/38792352283) passed on commit `74a14c26bfff0edb418ddc04e919ceb12477fc5d`: quality gates and Docker smoke, including production Compose/Caddy validation with synthetic values.
+- **Local checks: PASS.** `format:check`, `lint`, `typecheck`, `test` (172 backend + 43 frontend), `test:e2e` (107), `build`, shell syntax, and `git diff --check` passed.
+- **Production URL/status: BLOCKED.** No VM, GCP project/credentials, DNS domain, or live Goszakup token was available. Frontend production URL is absent/not provisioned; no public backend URL is designed. Internal backend target is `http://backend:3000`.
+- **Live flow and rollback execution: NOT RUN.** Deployment/smoke/rollback scripts and evidence fields are documented, but no live Goszakup lot/documents/requirements flow or production rollback is claimed.

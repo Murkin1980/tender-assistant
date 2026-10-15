@@ -657,7 +657,8 @@ requirements: {
 
 ### Проверки и production evidence
 
-- CI дополнительно валидирует production Compose/Caddy на синтетическом временном token: Goszakup secret не отображается в `docker compose config`, присутствует только у backend, frontend/backend не публикуют порты, CORS точный HTTPS origin, Caddy basic-auth/TLS config парсится.
+- **CI evidence (2026-10-15):** [GitHub Actions run #13](https://github.com/Murkin1980/tender-assistant/actions/runs/38792352283) passed on implementation commit `74a14c26bfff0edb418ddc04e919ceb12477fc5d`. It passed the quality gates plus production Compose/security assertions, pinned Caddyfile parsing with a synthetic throwaway hash/token, and fixture-backed local Docker health smoke. It is not live-production evidence.
+- CI production Compose/Caddy assertions verify that the Goszakup secret contents do not appear in rendered config, the secret is attached only to backend, frontend/backend do not publish ports, CORS is the exact HTTPS origin, and the private Caddy basic-auth/TLS config parses.
 - Regression tests используют sentinel token и проверяют, что upstream URL остаётся без токена, official document GET не получает Authorization, API/readiness/probe responses и probe/error messages не содержат токен. Frontend production runtime получает только `BACKEND_INTERNAL_URL`; Docker secret подключён исключительно к backend.
 - Docker smoke в CI остаётся отдельным fixture-backed local smoke; он не считается live production evidence. Локальная среда выполнения CP-13 не имеет Docker Engine, GCP/gcloud credentials, provisioned VM/domain или Goszakup token. Поэтому deployment, production health по реальному URL, live Goszakup/documents/requirements smoke и реальный rollback здесь **не выполнены**; для первого запуска нужна owner-provisioned GCE VM/domain и отдельный OWS token. Синтетический Compose validation и unit/e2e проверки не подменяют этот production gate.
 
