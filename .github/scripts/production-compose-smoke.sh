@@ -112,8 +112,10 @@ if ! compose run --rm --no-deps edge validate --config /etc/caddy/Caddyfile --ad
     printf '::error::Synthetic Goszakup token appeared in Caddy validation output.\n' >&2
     exit 1
   fi
-  printf '::error::Caddy configuration validation failed. Synthetic-only diagnostic follows.\n' >&2
-  sed -n '1,80p' "$CADDY_LOG" >&2
+  printf '::error::Caddy configuration validation failed. Synthetic-only diagnostic follows.\n'
+  while IFS= read -r line; do
+    printf '::error::Caddy validation: %s\n' "$line"
+  done <"$CADDY_LOG"
   exit 1
 fi
 if grep -Fq "$SECRET_SENTINEL" "$CADDY_LOG"; then
