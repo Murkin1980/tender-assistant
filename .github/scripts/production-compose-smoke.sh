@@ -114,7 +114,8 @@ if ! compose run --rm --no-deps edge validate --config /etc/caddy/Caddyfile --ad
     exit 1
   fi
   printf '::error::Caddy configuration validation failed. Synthetic-only diagnostic follows.\n'
-  while IFS= read -r line; do
+  line=''
+  while IFS= read -r line || [[ -n "$line" ]]; do
     printf '::error::Caddy validation: %s\n' "$line"
   done < <(tr '\r' '\n' <"$CADDY_LOG")
   exit 1
