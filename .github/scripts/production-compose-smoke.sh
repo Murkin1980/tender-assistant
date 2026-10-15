@@ -81,7 +81,7 @@ if (edgePorts.join(',') !== '443,80') {
   errors.push('only the private HTTPS edge may publish ports 80 and 443');
 }
 if (edge?.environment?.OPERATOR_PASSWORD_HASH !== '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy') {
-  errors.push('Caddy must receive the test-only bcrypt hash for its private access boundary');
+  errors.push(`Caddy test-only bcrypt hash was modified or dropped by Compose (actual: ${JSON.stringify(edge?.environment?.OPERATOR_PASSWORD_HASH)})`);
 }
 if (configText.includes(secretSentinel)) {
   errors.push('the contents of the secret file appeared in rendered Compose configuration');
