@@ -6,35 +6,62 @@ Status: PLANNED — DO NOT IMPLEMENT WITHOUT EXPLICIT OWNER START
 
 Decision: **EXTEND_EXISTING**
 
-Continue `Murkin1980/tender-assistant`. Do not create a parallel product or repository.
-
+Continue `Murkin1980/tender-assistant`. Consume the CP-16 requirements report; do not re-parse documents in a second pipeline.
 
 ## Objective
-Turn extracted requirements into a practical participation checklist.
+
+Turn the source-linked CP-16 report into the practical question:
+
+**“Что именно нам нужно подготовить и подтвердить, чтобы участвовать?”**
 
 ## Required outcome
-Classify source-linked obligations into at least:
+
+Classify obligations into at least:
+
+- technical compliance confirmations;
 - qualification;
-- required certificates/evidence;
+- required certificates/declarations/evidence;
 - bid/security guarantees;
-- required attachments/forms;
-- technical requirements;
-- delivery/location/timing;
+- mandatory attachments/forms;
+- delivery/installation/service;
+- warranty/acceptance;
 - commercial/payment obligations;
 - manual-review gaps.
 
-Each checklist item must have source evidence and state: READY / MISSING / REVIEW / NOT_APPLICABLE where deterministically known.
+Each checklist item must reference the CP-16 source evidence and have an operator state such as:
+
+- READY;
+- MISSING;
+- REVIEW;
+- NOT_APPLICABLE.
+
+Where the system cannot determine readiness from known company/operator data, use REVIEW rather than guessing.
+
+## Report behavior
+
+The tender detail must provide an operator-friendly participation report:
+
+- what the requirement is;
+- why it matters;
+- what evidence/document is expected;
+- current readiness state;
+- source citation/locator;
+- unresolved question if manual review is needed.
 
 ## Constraints
-No legal conclusion and no invented requirement. Unknowns remain REVIEW.
+
+No legal guarantee of eligibility.
+No invented requirement.
+No duplicate parser.
+Unknowns remain REVIEW.
 
 ## Acceptance
-For supported tender fixtures/documents, the operator can see exactly what participation evidence is required and which items still need manual verification.
 
+For the evaluation tenders, the operator can see a complete source-linked participation checklist and identify missing evidence without rereading all supported documents.
 
 ## Process rule
 
-Before implementation, re-read `docs/roadmap/PRODUCT-READINESS-ROADMAP-2026-10-15.md`, all direct prerequisite checkpoints, `AGENTS.md`, and `docs/governance/SCOPE-CHANGE-CONTROL.md`.
+Before implementation, re-read `docs/roadmap/PRODUCT-READINESS-ROADMAP-2026-10-15.md`, CP-16, `AGENTS.md`, and `docs/governance/SCOPE-CHANGE-CONTROL.md`.
 
 Promote this checkpoint to APPROVED FOR IMPLEMENTATION only after explicit owner instruction.
 
