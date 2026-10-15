@@ -1,3 +1,5 @@
+import { fetchBackend } from './backend';
+
 /** Status values of the CP-07 assessment filter, as the select offers them. */
 export const lotAssessmentStatuses = ['MATCH', 'REVIEW', 'EXCLUDE'] as const;
 
@@ -189,8 +191,7 @@ export function lotQuery(params: SearchParams): URLSearchParams {
 
 /** Only called by server pages: the internal backend URL never reaches the browser. */
 export async function fetchLotsApi(path: string): Promise<Response> {
-  const base = (process.env.BACKEND_INTERNAL_URL ?? 'http://localhost:3000').replace(/\/+$/, '');
-  return fetch(`${base}/api/v1/lots${path}`, {
+  return fetchBackend(`/api/v1/lots${path}`, {
     headers: { Accept: 'application/json' },
     cache: 'no-store',
     signal: AbortSignal.timeout(3000),

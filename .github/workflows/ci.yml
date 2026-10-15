@@ -65,6 +65,9 @@ jobs:
       - name: Validate Docker Compose configuration
         run: docker compose config
 
+      - name: Validate private production Compose and Caddy configuration
+        run: bash .github/scripts/production-compose-smoke.sh
+
       - name: Build and start containers
         run: docker compose up --build -d
 

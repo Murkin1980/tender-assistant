@@ -96,6 +96,7 @@ const LIVE_DOC_BYTES: Readonly<Record<string, Uint8Array>> = {
 const originalFetch = globalThis.fetch;
 const originalEnvironment = {
   GOSZAKUP_TOKEN: process.env.GOSZAKUP_TOKEN,
+  GOSZAKUP_TOKEN_FILE: process.env.GOSZAKUP_TOKEN_FILE,
   TENDER_LOT_SOURCE: process.env.TENDER_LOT_SOURCE,
 };
 
@@ -225,6 +226,7 @@ describe('Live lots API with TENDER_LOT_SOURCE=goszakup', () => {
   beforeAll(async () => {
     process.env.TENDER_LOT_SOURCE = 'goszakup';
     process.env.GOSZAKUP_TOKEN = TOKEN;
+    delete process.env.GOSZAKUP_TOKEN_FILE;
     stubRegistry();
     app = await createApp({ logger: false });
     await app.init();
@@ -512,10 +514,19 @@ describe('Live lots API with TENDER_LOT_SOURCE=goszakup', () => {
     expect(response.text).not.toContain('TOKEN');
   });
 
-  it('keeps the health endpoint working', async () => {
-    const response = await request(app.getHttpServer()).get('/api/v1/health').expect(200);
+  it('keeps liveness and readiness healthy without exposing the token', async () => {
+    const health = await request(app.getHttpServer()).get('/api/v1/health').expect(200);
+    const readiness = await request(app.getHttpServer()).get('/api/v1/ready').expect(200);
 
-    expect(response.body).toMatchObject({ status: 'ok', service: 'tender-assistant-backend' });
+    expect(health.body).toMatchObject({ status: 'ok', service: 'tender-assistant-backend' });
+    expect(readiness.body).toMatchObject({
+      status: 'ready',
+      service: 'tender-assistant-backend',
+    });
+    expect(health.text).not.toContain(TOKEN);
+    expect(readiness.text).not.toContain(TOKEN);
+    expect(upstreamRequests).toHaveLength(0);
+    expect(documentRequests).toHaveLength(0);
   });
 });
 
@@ -525,6 +536,7 @@ describe('Live lots API when the registry fails', () => {
   beforeAll(async () => {
     process.env.TENDER_LOT_SOURCE = 'goszakup';
     process.env.GOSZAKUP_TOKEN = TOKEN;
+    delete process.env.GOSZAKUP_TOKEN_FILE;
     app = await createApp({ logger: false });
     await app.init();
   });
@@ -593,6 +605,7 @@ describe('Live lots API without a configured token', () => {
   beforeAll(async () => {
     process.env.TENDER_LOT_SOURCE = 'goszakup';
     delete process.env.GOSZAKUP_TOKEN;
+    delete process.env.GOSZAKUP_TOKEN_FILE;
     // An unauthenticated request would be a defect, so make it fail loudly.
     globalThis.fetch = jest.fn(async () => {
       throw new Error('The registry must not be called without a token');
@@ -626,10 +639,14 @@ describe('Live lots API without a configured token', () => {
     expect(globalThis.fetch).not.toHaveBeenCalled();
   });
 
-  it('still reports live mode, and keeps the health endpoint working', async () => {
+  it('keeps liveness healthy but readiness safely unavailable without the live secret', async () => {
     const source = await request(app.getHttpServer()).get('/api/v1/lots/source').expect(200);
     expect(source.body).toEqual({ mode: 'goszakup', live: true, label: 'Goszakup' });
 
     await request(app.getHttpServer()).get('/api/v1/health').expect(200);
+    const readiness = await request(app.getHttpServer()).get('/api/v1/ready').expect(503);
+    expect(readiness.text).not.toContain('GOSZAKUP_TOKEN');
+    expect(readiness.text).not.toContain(TOKEN);
+    expect(globalThis.fetch).not.toHaveBeenCalled();
   });
 });
