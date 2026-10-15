@@ -1,6 +1,6 @@
 # CP-13 — Production runtime and live release path
 
-Status: PLANNED — DO NOT IMPLEMENT WITHOUT EXPLICIT OWNER START
+Status: APPROVED FOR IMPLEMENTATION
 
 ## New Idea Filter
 
