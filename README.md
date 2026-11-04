@@ -21,6 +21,8 @@ tender-assistant/
 
 ## Документы проекта
 
+- [CP-EGZ — OWS API: контракт, проверки и оставшиеся live-gates](docs/checkpoints/CP-EGZ-API-INTEGRATION.md) — read-only интеграция; live-приёмка пока не подтверждена.
+
 - [Техническая спецификация](tender-assistant-spec.md)
 - [Инструкция по настройке инфраструктуры GCP](gcp-server-setup.md)
 

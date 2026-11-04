@@ -65,7 +65,11 @@ export async function runGoszakupProbe(
     const lots = await source.fetchLots(undefined, limit);
     lines.push(`Goszakup OWS v3 returned ${lots.length} normalized lot(s) for limit=${limit}.`);
     const [first] = lots;
-    if (first) lines.push(`First normalized lot: ${summarizeLot(first)}`);
+    if (!first) {
+      lines.push('Live data verification FAILED: no normalized lot was available as evidence.');
+      return { status: 'FAILED', lines, exitCode: 1 };
+    }
+    lines.push(`First normalized lot: ${summarizeLot(first)}`);
     lines.push('Read-only probe: nothing was persisted, no token was printed.');
     return { status: 'PASS', lines, exitCode: 0 };
   } catch (error) {

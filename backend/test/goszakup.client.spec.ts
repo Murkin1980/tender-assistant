@@ -77,6 +77,7 @@ describe('GoszakupClient', () => {
     const call = fetchCalls[0];
     expect(call?.url).toBe(DEFAULT_GOSZAKUP_GRAPHQL_URL);
     expect(call?.init.method).toBe('POST');
+    expect(call?.init.redirect).toBe('error');
     expect(call?.init.headers).toMatchObject({
       'Content-Type': 'application/json',
       Authorization: `Bearer ${TOKEN}`,
@@ -87,6 +88,17 @@ describe('GoszakupClient', () => {
     });
     // A hard bound is attached to every request so a slow registry cannot hang the process.
     expect(call?.init.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('fails closed on an authenticated redirect without retrying or leaking the token', async () => {
+    stubFetch(async () => {
+      throw new TypeError('fetch failed: ' + TOKEN);
+    });
+    const error = await captureUpstreamError(buildClient().fetchLots({ limit: 5 }));
+    expect(fetchCalls).toHaveLength(1);
+    expect(fetchCalls[0]?.init.redirect).toBe('error');
+    expect(error.reason).toBe('network');
+    expect(error.message).not.toContain(TOKEN);
   });
 
   it('defaults the filter to null and never sends a write operation', async () => {

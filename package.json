@@ -15,5 +15,8 @@
     "typecheck": "pnpm --recursive --if-present typecheck",
     "test": "pnpm --parallel --filter @tender-assistant/backend --filter @tender-assistant/frontend test",
     "test:e2e": "pnpm --filter @tender-assistant/backend test:e2e"
+  },
+  "devDependencies": {
+    "wrangler": "4.151.0"
   }
 }
