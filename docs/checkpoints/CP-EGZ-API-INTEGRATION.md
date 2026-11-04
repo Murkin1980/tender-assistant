@@ -137,3 +137,74 @@ Remaining gates: current official V2/V3 contract review, protected Worker Secret
 binding validation, bounded real-data probe with public evidence, live search/UI
 acceptance, production log audit/private-access and release acceptance when
 separately authorized. No production operations are authorized by this document.
+
+## CP-EGZ-LIVE-01 — 2026-11-04 follow-up
+
+Overall **PARTIAL**. Executor: Arena Agent. Same branch and PR #14; no runtime
+code changes were needed for the independent verification below.
+
+| Checkpoint | Status | Fresh evidence / exact remaining blocker |
+| --- | --- | --- |
+| CP-EGZ-01 | PARTIAL | Reviewed existing v3 endpoint, Bearer header, bounded Lots/detail queries, mapper and client error/redirect handling; official current schema inaccessible under sandbox host policy. Repository contract is not fresh official verification. |
+| CP-EGZ-02 | PARTIAL | Worker config/bundle and local startup passed; remote Worker existence and Secret-name presence UNVERIFIED: no Cloudflare credentials found and Cloudflare API hosts are not permitted. |
+| CP-EGZ-03 | BLOCKED | No environment GOSZAKUP_TOKEN, no local backend .env/.dev.vars files, and OWS hosts are not permitted. No live request or real lot normalization evidence exists. |
+| CP-EGZ-04 | PARTIAL | Reviewed text pushdown and local filter implementation; local furniture query fails closed without fixtures. Actual furniture results and filters on real records remain BLOCKED with CP-EGZ-03. |
+| CP-EGZ-05 | PASS (independent checks) | Fresh frozen install, format, lint, typecheck, 168 backend + 40 frontend unit, 107 e2e, Nest/Next builds and Worker dry-run all passed. Production/live smoke remains NOT RUN. |
+| CP-EGZ-06 | PASS (reporting only) | Evidence appended here and published to existing PR #14; acceptance of real-data MVP is still BLOCKED, not implied by reporting completion. |
+
+### Access preflight (presence only, values never emitted)
+
+Environment variables `GOSZAKUP_TOKEN`, `CLOUDFLARE_API_TOKEN` and
+`CLOUDFLARE_ACCOUNT_ID`: ABSENT. Standard Wrangler OAuth config files under
+`~/.config/.wrangler/config/default.toml` and `~/.wrangler/config/default.toml`:
+ABSENT. `backend/.env`, `backend/.dev.vars` and root `.dev.vars`: ABSENT.
+These local checks do NOT establish whether a Secret exists remotely.
+No secret-list API request could be made from this permitted environment; no
+production settings or Secrets were read or changed. Do not infer Secret absence
+in Cloudflare from missing local authentication.
+
+Permitted outbound hosts are GitHub and npm/Python registries, not
+`ows.goszakup.gov.kz`, the procurement portal, or Cloudflare API/documentation.
+No proxy, alternate host, CI secret extraction or other network bypass was used.
+The endpoint/auth review therefore confirms code intent only: POST to the official
+v3 URL recorded by CP-04, backend Bearer token, HTTPS, redirect rejection, one
+bounded query, timeout, explicit HTTP/GraphQL failures and token redaction.
+
+### Fresh local smoke and probe evidence
+
+At 2026-11-04 11:39:38 UTC local workerd returned:
+
+- `/api/v1/health`: 200, `status=ok`.
+- `/api/v1/lots/source`: 200, `mode=goszakup`, `live=true`. Here `live` means
+  configured mode only; it is NOT proof of upstream connectivity/readiness.
+- `/api/v1/lots`: 503, `Lot source is temporarily unavailable`.
+- `/api/v1/lots?q=мебель&maxAmount=500000&region=Алматы`: same generic 503,
+  no fixture response. This is a negative smoke, NOT furniture-search acceptance.
+
+Existing probe was invoked; it reported `GOSZAKUP_TOKEN is not set` and `NOT RUN`.
+The pnpm recursive wrapper reported a lifecycle failure (expected for a skipped
+probe); direct `node backend/dist/probe/goszakup.probe.js` confirmed the probe's
+explicit SKIPPED exit code 2. No upstream fetch was made.
+
+Worker dry-run passed at 3076.57 KiB / gzip 574.17 KiB, no upload. Wrangler local
+startup warned about unavailable optional Request.cf metadata as before. Running
+`probe:goszakup` rebuilds/cleans dist; while the local watcher was still running
+this caused transient `Could not resolve ./dist/worker.js` reload errors after
+the successful HTTP assertions. This was a local command-order artifact, not a
+production error. The local server was stopped; avoid rebuilding dist concurrently
+with Worker smoke. No long-lived service is left running.
+
+### CI and next permitted action
+
+Prior code head `2770fbb07c2199d0daf6e8927486f01b003cce04` has green
+[Quality gates](https://github.com/Murkin1980/tender-assistant/actions/runs/41810573949/job/126508494714)
+and [Docker smoke](https://github.com/Murkin1980/tender-assistant/actions/runs/41810573949/job/126508845627).
+Fresh CI for this evidence-only follow-up is linked in PR #14 and the final report.
+
+To unblock live acceptance, provide an approved execution environment whose
+network policy permits official OWS/docs and read-only Cloudflare metadata calls,
+with a securely injected OWS token and read-only Cloudflare access. Do not paste
+credentials in chat, issue or PR. Only then inspect Worker/Secret names without
+values, perform one bounded read and furniture query through the existing client,
+verify public lot IDs/normalization and record non-secret evidence. This does not
+authorize merge, deployment, production secret writes or organization actions.
