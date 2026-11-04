@@ -84,14 +84,15 @@ describe('runGoszakupProbe', () => {
     expect(output).not.toContain('Authorization');
   });
 
-  it('accepts an empty page as a successful read', async () => {
+  it('does not claim live data verification for an empty page', async () => {
     process.env[GOSZAKUP_TOKEN_ENV_NAME] = TOKEN;
     stubFetch(() => json({ data: { Lots: [] } }));
     captureLogs();
 
     const result = await runGoszakupProbe();
 
-    expect(result.status).toBe('PASS');
+    expect(result.status).toBe('FAILED');
+    expect(result.exitCode).toBe(1);
     expect(result.lines.join('\n')).toContain('0 normalized lot(s)');
     expect(result.lines.join('\n')).not.toContain('First normalized lot');
   });

@@ -54,6 +54,11 @@ jobs:
       - name: Build production bundles
         run: pnpm build
 
+      - name: Validate EGZ Worker bundle without deployment
+        env:
+          WRANGLER_SEND_METRICS: 'false'
+        run: pnpm exec wrangler deploy --config backend/wrangler.jsonc --dry-run --outdir .wrangler/egz-dry-run
+
   docker-smoke:
     name: Docker smoke test
     runs-on: ubuntu-latest

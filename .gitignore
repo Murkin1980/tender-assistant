@@ -46,3 +46,8 @@ service-account.json
 
 # Local container data
 .volumes/
+
+# Cloudflare local state and secret files
+.wrangler/
+.dev.vars
+.dev.vars.*

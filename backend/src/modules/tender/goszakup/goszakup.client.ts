@@ -149,6 +149,8 @@ export class GoszakupClient {
     try {
       response = await fetch(this.graphqlUrl, {
         method: 'POST',
+        // A registry redirect is not permission to forward an authenticated request.
+        redirect: 'error',
         headers: {
           'Content-Type': 'application/json',
           Accept: 'application/json',
