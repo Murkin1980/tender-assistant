@@ -190,11 +190,13 @@ export function lotQuery(params: SearchParams): URLSearchParams {
 }
 
 /** Only called by server pages: the internal backend URL never reaches the browser. */
+const LOTS_UPSTREAM_TIMEOUT_MS = 20_000;
+
 export async function fetchLotsApi(path: string): Promise<Response> {
   return fetchBackend(`/api/v1/lots${path}`, {
     headers: { Accept: 'application/json' },
     cache: 'no-store',
-    signal: AbortSignal.timeout(3000),
+    signal: AbortSignal.timeout(LOTS_UPSTREAM_TIMEOUT_MS),
   });
 }
 
