@@ -76,6 +76,8 @@ describe('GoszakupClient', () => {
 
     const call = fetchCalls[0];
     expect(call?.url).toBe(DEFAULT_GOSZAKUP_GRAPHQL_URL);
+    expect(call?.url).not.toContain(TOKEN);
+    expect(new URL(call?.url ?? '').search).toBe('');
     expect(call?.init.method).toBe('POST');
     expect(call?.init.headers).toMatchObject({
       'Content-Type': 'application/json',

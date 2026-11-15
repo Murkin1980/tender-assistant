@@ -1,3 +1,7 @@
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import configuration from '../src/configuration';
 
 function restoreEnvironmentVariable(name: string, value: string | undefined): void {
@@ -15,6 +19,7 @@ describe('configuration', () => {
     GOSZAKUP_GRAPHQL_URL: process.env.GOSZAKUP_GRAPHQL_URL,
     GOSZAKUP_TIMEOUT_MS: process.env.GOSZAKUP_TIMEOUT_MS,
     GOSZAKUP_TOKEN: process.env.GOSZAKUP_TOKEN,
+    GOSZAKUP_TOKEN_FILE: process.env.GOSZAKUP_TOKEN_FILE,
     NODE_ENV: process.env.NODE_ENV,
     PORT: process.env.PORT,
     TENDER_LOT_SOURCE: process.env.TENDER_LOT_SOURCE,
@@ -25,6 +30,7 @@ describe('configuration', () => {
     restoreEnvironmentVariable('GOSZAKUP_GRAPHQL_URL', originalEnvironment.GOSZAKUP_GRAPHQL_URL);
     restoreEnvironmentVariable('GOSZAKUP_TIMEOUT_MS', originalEnvironment.GOSZAKUP_TIMEOUT_MS);
     restoreEnvironmentVariable('GOSZAKUP_TOKEN', originalEnvironment.GOSZAKUP_TOKEN);
+    restoreEnvironmentVariable('GOSZAKUP_TOKEN_FILE', originalEnvironment.GOSZAKUP_TOKEN_FILE);
     restoreEnvironmentVariable('NODE_ENV', originalEnvironment.NODE_ENV);
     restoreEnvironmentVariable('PORT', originalEnvironment.PORT);
     restoreEnvironmentVariable('TENDER_LOT_SOURCE', originalEnvironment.TENDER_LOT_SOURCE);
@@ -54,6 +60,7 @@ describe('configuration', () => {
     delete process.env.GOSZAKUP_GRAPHQL_URL;
     delete process.env.GOSZAKUP_TIMEOUT_MS;
     delete process.env.GOSZAKUP_TOKEN;
+    delete process.env.GOSZAKUP_TOKEN_FILE;
 
     expect(configuration().goszakup).toEqual({
       graphqlUrl: 'https://ows.goszakup.gov.kz/v3/graphql',
@@ -72,6 +79,30 @@ describe('configuration', () => {
       timeoutMs: 4000,
       token: 'example-token',
     });
+  });
+
+  it('reads the production token from a secret file, preferring it over a plain environment value', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'tender-assistant-secret-'));
+    const tokenPath = join(directory, 'goszakup-token');
+    const token = 'file-backed-production-token';
+
+    try {
+      writeFileSync(tokenPath, `${token}\n`, { mode: 0o600 });
+      process.env.GOSZAKUP_TOKEN_FILE = tokenPath;
+      process.env.GOSZAKUP_TOKEN = 'must-not-win-over-file-secret';
+
+      expect(configuration().goszakup.token).toBe(token);
+      expect(readFileSync(tokenPath, 'utf8')).toContain(token);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('fails closed when a configured token file cannot be read without echoing its path', () => {
+    process.env.GOSZAKUP_TOKEN_FILE = '/tmp/private/goszakup-token-must-not-be-reported';
+
+    expect(() => configuration()).toThrow('GOSZAKUP_TOKEN_FILE could not be read');
+    expect(() => configuration()).toThrow('GOSZAKUP_TOKEN_FILE could not be read');
   });
 
   it('rejects a Goszakup endpoint that is not an https URL', () => {

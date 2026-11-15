@@ -1,0 +1,91 @@
+services:
+  backend:
+    image: tender-assistant-backend:${RELEASE_SHA:?RELEASE_SHA must be set by deploy-production.sh}
+    build:
+      context: ../..
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      CORS_ORIGIN: ${APP_ORIGIN:?APP_ORIGIN must match the HTTPS frontend origin}
+      TENDER_LOT_SOURCE: goszakup
+      GOSZAKUP_TOKEN_FILE: /run/secrets/goszakup_token
+    secrets:
+      - goszakup_token
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/v1/ready').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - backend_net
+    labels:
+      org.opencontainers.image.revision: ${RELEASE_SHA}
+
+  frontend:
+    image: tender-assistant-frontend:${RELEASE_SHA:?RELEASE_SHA must be set by deploy-production.sh}
+    build:
+      context: ../..
+      dockerfile: frontend/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      BACKEND_INTERNAL_URL: http://backend:3000
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/v1/ready').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - backend_net
+      - edge_net
+    labels:
+      org.opencontainers.image.revision: ${RELEASE_SHA}
+
+  edge:
+    image: caddy:2.10.2-alpine
+    restart: unless-stopped
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?APP_DOMAIN must be set}
+      ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL must be set}
+      OPERATOR_USERNAME: ${OPERATOR_USERNAME:?OPERATOR_USERNAME must be set}
+      OPERATOR_PASSWORD_HASH: ${OPERATOR_PASSWORD_HASH:?OPERATOR_PASSWORD_HASH must be set}
+    ports:
+      - '80:80'
+      - '443:443'
+    networks:
+      - edge_net
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      frontend:
+        condition: service_healthy
+
+secrets:
+  goszakup_token:
+    file: ${GOSZAKUP_TOKEN_FILE:?GOSZAKUP_TOKEN_FILE must point to a protected secret file}
+
+volumes:
+  caddy_data:
+  caddy_config:
+
+networks:
+  backend_net:
+  edge_net:

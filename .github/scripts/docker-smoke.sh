@@ -7,16 +7,10 @@
 #   docker compose up --build -d
 #
 # The script:
-#   1. Waits for the backend health endpoint (http://localhost:3000/api/v1/health)
-#      and the frontend proxy endpoint (http://localhost:3001/api/v1/health)
-#      using a bounded retry loop (30 attempts x 2 seconds = up to 60s per
-#      service). It never relies on a single fixed `sleep`.
-#   2. Validates that both HTTP 200 responses are JSON objects with:
-#         {
-#           "status": "ok",
-#           "service": "tender-assistant-backend",
-#           "timestamp": "<valid ISO-8601 string>"
-#         }
+#   1. Waits for backend/frontend liveness (`/api/v1/health`) and readiness
+#      (`/api/v1/ready`) using bounded retry loops (30 attempts x 2 seconds).
+#   2. Validates the JSON contracts: liveness `status: ok`, readiness
+#      `status: ready`, the backend service name, and an ISO-8601 timestamp.
 #      Payload validation uses Node.js (already available on the runner),
 #      so no extra dependencies such as `jq` are introduced.
 #   3. On any failure prints `docker compose ps` and the last 200 log lines
@@ -33,6 +27,8 @@ set -euo pipefail
 
 BACKEND_URL="${BACKEND_URL:-http://localhost:3000/api/v1/health}"
 FRONTEND_URL="${FRONTEND_URL:-http://localhost:3001/api/v1/health}"
+BACKEND_READY_URL="${BACKEND_READY_URL:-http://localhost:3000/api/v1/ready}"
+FRONTEND_READY_URL="${FRONTEND_READY_URL:-http://localhost:3001/api/v1/ready}"
 # 30 attempts x 2 seconds = up to 60 seconds of waiting per service.
 MAX_ATTEMPTS="${MAX_ATTEMPTS:-30}"
 ATTEMPT_INTERVAL_SECONDS="${ATTEMPT_INTERVAL_SECONDS:-2}"
@@ -78,6 +74,7 @@ wait_for_url() {
 validate_health_payload() {
   local url="$1"
   local label="$2"
+  local expected_status="$3"
   local body
 
   if ! body="$(curl --fail --show-error --silent "${url}")"; then
@@ -106,8 +103,9 @@ validate_health_payload() {
 
       const errors = [];
 
-      if (payload.status !== "ok") {
-        errors.push(`"status" must be "ok", got ${JSON.stringify(payload.status)}`);
+      const expectedStatus = process.argv[2];
+      if (payload.status !== expectedStatus) {
+        errors.push(`"status" must be ${JSON.stringify(expectedStatus)}, got ${JSON.stringify(payload.status)}`);
       }
 
       if (payload.service !== "tender-assistant-backend") {
@@ -132,24 +130,36 @@ validate_health_payload() {
 
       console.log(`Health payload is valid: ${data}`);
     });
-  ' "${url}"; then
+  ' "${url}" "${expected_status}"; then
     fail "${label} health payload does not match the expected contract: ${url}"
   fi
 }
 
 echo "Smoke test targets:"
 echo "  backend:  ${BACKEND_URL}"
-echo "  frontend: ${FRONTEND_URL}"
+echo "  frontend:           ${FRONTEND_URL}"
+echo "  backend readiness:  ${BACKEND_READY_URL}"
+echo "  frontend readiness: ${FRONTEND_READY_URL}"
 echo ""
 
 echo "Waiting for the backend health endpoint..."
 wait_for_url "${BACKEND_URL}" "Backend"
-validate_health_payload "${BACKEND_URL}" "Backend"
+validate_health_payload "${BACKEND_URL}" "Backend" "ok"
 
 echo ""
 echo "Waiting for the frontend health proxy endpoint..."
 wait_for_url "${FRONTEND_URL}" "Frontend"
-validate_health_payload "${FRONTEND_URL}" "Frontend"
+validate_health_payload "${FRONTEND_URL}" "Frontend" "ok"
 
 echo ""
-echo "Docker smoke test passed: backend and frontend health endpoints returned the expected payload."
+echo "Waiting for backend configuration readiness..."
+wait_for_url "${BACKEND_READY_URL}" "Backend readiness"
+validate_health_payload "${BACKEND_READY_URL}" "Backend readiness" "ready"
+
+echo ""
+echo "Waiting for frontend readiness proxy..."
+wait_for_url "${FRONTEND_READY_URL}" "Frontend readiness"
+validate_health_payload "${FRONTEND_READY_URL}" "Frontend readiness" "ready"
+
+echo ""
+echo "Docker smoke test passed: liveness and readiness endpoints returned the expected payload."
