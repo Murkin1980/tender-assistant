@@ -11,11 +11,15 @@ import { LOT_ASSESSMENT_STATUSES } from './lot-assessment';
 import { LOT_TIMING_STATUSES } from './lot-timing';
 import type { LotSourceStatus } from './lot.source';
 import { TenderService } from './tender.service';
+import { GoszakupClient, type GoszakupDiagnosticReport } from './goszakup/goszakup.client';
 
 /** Validates the public query contract without silently accepting malformed filters. */
 @Controller('lots')
 export class TenderController {
-  constructor(private readonly service: TenderService) {}
+  constructor(
+    private readonly service: TenderService,
+    private readonly goszakup: GoszakupClient,
+  ) {}
 
   /**
    * Declared before `:id` so `/lots/source` is read as the source status and not as a lot id.
@@ -23,6 +27,12 @@ export class TenderController {
   @Get('source')
   source(): LotSourceStatus {
     return this.service.sourceStatus();
+  }
+
+  /** Temporary CP-13 probe; backend Worker has no public route and is reachable by binding only. */
+  @Get('__diagnostic/ows')
+  diagnoseOws(): Promise<GoszakupDiagnosticReport> {
+    return this.goszakup.diagnoseOws();
   }
 
   @Get()
