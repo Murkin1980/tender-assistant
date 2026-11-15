@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 
+import { fetchBackend } from '../../../../lib/backend';
+
 const UPSTREAM_TIMEOUT_MS = 3_000;
 const UPSTREAM_HEALTH_PATH = '/api/v1/health';
 const UPSTREAM_SERVICE = 'tender-assistant-backend';
@@ -58,15 +60,11 @@ export const runtime = 'nodejs';
 export async function GET(): Promise<
   NextResponse<UpstreamHealthResponse | ProxyUnavailableResponse>
 > {
-  const backendInternalUrl = (process.env.BACKEND_INTERNAL_URL ?? 'http://localhost:3000').replace(
-    /\/+$/,
-    '',
-  );
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
 
   try {
-    const upstreamResponse = await fetch(`${backendInternalUrl}${UPSTREAM_HEALTH_PATH}`, {
+    const upstreamResponse = await fetchBackend(UPSTREAM_HEALTH_PATH, {
       method: 'GET',
       headers: {
         Accept: 'application/json',
